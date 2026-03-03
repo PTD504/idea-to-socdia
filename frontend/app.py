@@ -49,6 +49,20 @@ def api_get_status(workflow_id: str) -> dict | None:
         return None
 
 
+def api_get_all_workflows() -> list[dict] | None:
+    """GET /workflows -- fetch all workflows."""
+    try:
+        resp = requests.get(
+            f"{API_BASE}/workflows",
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        st.error(f"Failed to fetch workflows: {exc}")
+        return None
+
+
 def api_approve(workflow_id: str) -> dict | None:
     """POST /workflows/{id}/approve -- approve the HITL review."""
     try:
@@ -106,6 +120,25 @@ with st.sidebar:
         placeholder="Paste a workflow ID to resume",
     )
     load_clicked = st.button("Load Workflow")
+
+    st.divider()
+    with st.expander("View All Workflows", icon="📜"):
+        if st.button("Refresh List"):
+            st.rerun()
+            
+        workflows = api_get_all_workflows()
+        if workflows:
+            for w in workflows:
+                st.markdown(f"**ID**: `{w['workflow_id']}`")
+                st.markdown(f"**Topic**: {w['topic']}")
+                st.markdown(f"**Status**: {w['current_state']}")
+                if st.button("Load", key=f"load_{w['workflow_id']}"):
+                    st.session_state.workflow_id = w["workflow_id"]
+                    st.session_state.workflow_status = api_get_status(w["workflow_id"])
+                    st.rerun()
+                st.divider()
+        else:
+            st.write("No active workflows found.")
 
 
 # ------------------------------------------------------------------
@@ -183,11 +216,20 @@ if current_state == "hitl_review":
     st.header("Storyboard Review")
     st.write("Please review each scene below. Once satisfied, click **Approve** to proceed to asset generation and publishing.")
 
+    if storyboard:
+        st.subheader("Global Metadata")
+        st.markdown(f"**YouTube Title:** {storyboard.get('youtube_title', 'N/A')}")
+        st.markdown(f"**YouTube Description:**\n```text\n{storyboard.get('youtube_description', 'N/A')}\n```")
+        st.markdown(f"**Thumbnail Prompt:**\n{storyboard.get('thumbnail_prompt', 'N/A')}")
+        st.divider()
+
     if storyboard and "scenes" in storyboard:
         for idx, scene in enumerate(storyboard["scenes"], start=1):
             with st.expander(f"Scene {idx}", expanded=True):
-                st.markdown("**Narration**")
+                st.markdown("**Narration (Context)**")
                 st.write(scene.get("narration", "N/A"))
+                st.markdown("**Voiceover Text**")
+                st.write(scene.get("voiceover_text", "N/A"))
 
                 col_img, col_vid = st.columns(2)
                 with col_img:
@@ -233,12 +275,21 @@ elif current_state == "completed":
         st.subheader("YouTube Video ID")
         st.code(youtube_id)
 
+    if storyboard:
+        st.subheader("Global Metadata")
+        st.markdown(f"**YouTube Title:** {storyboard.get('youtube_title', 'N/A')}")
+        st.markdown(f"**YouTube Description:**\n```text\n{storyboard.get('youtube_description', 'N/A')}\n```")
+        st.markdown(f"**Thumbnail Prompt:**\n{storyboard.get('thumbnail_prompt', 'N/A')}")
+        st.divider()
+
     if storyboard and "scenes" in storyboard:
         st.subheader("Generated Assets")
         for idx, scene in enumerate(storyboard["scenes"], start=1):
             with st.expander(f"Scene {idx}", expanded=True):
-                st.markdown("**Narration**")
+                st.markdown("**Narration (Context)**")
                 st.write(scene.get("narration", "N/A"))
+                st.markdown("**Voiceover Text**")
+                st.write(scene.get("voiceover_text", "N/A"))
 
                 col_img, col_vid = st.columns(2)
                 with col_img:
