@@ -8,13 +8,16 @@ Run with:
     streamlit run frontend/app.py
 """
 
+import os
 import requests
 import streamlit as st
 import time
 
 # -- Configuration --
-API_BASE = "http://127.0.0.1:8000"
-
+# Internal URL used by the Streamlit container to reach the backend
+API_INTERNAL_URL = os.environ.get("BACKEND_URL")
+# External URL used by the user's browser to resolve static assets
+API_EXTERNAL_URL = os.environ.get("BACKEND_URL")
 
 # ------------------------------------------------------------------
 # API helper functions
@@ -24,7 +27,7 @@ def api_create_workflow(topic: str, style: str) -> dict | None:
     """POST /workflows -- start a new content workflow."""
     try:
         resp = requests.post(
-            f"{API_BASE}/workflows",
+            f"{API_INTERNAL_URL}/workflows",
             json={"topic": topic, "style": style},
             timeout=120,
         )
@@ -34,12 +37,11 @@ def api_create_workflow(topic: str, style: str) -> dict | None:
         st.error(f"Failed to create workflow: {exc}")
         return None
 
-
 def api_get_status(workflow_id: str) -> dict | None:
     """GET /workflows/{id} -- fetch current workflow status."""
     try:
         resp = requests.get(
-            f"{API_BASE}/workflows/{workflow_id}",
+            f"{API_INTERNAL_URL}/workflows/{workflow_id}",
             timeout=30,
         )
         resp.raise_for_status()
@@ -48,12 +50,11 @@ def api_get_status(workflow_id: str) -> dict | None:
         st.error(f"Failed to fetch status: {exc}")
         return None
 
-
 def api_get_all_workflows() -> list[dict] | None:
     """GET /workflows -- fetch all workflows."""
     try:
         resp = requests.get(
-            f"{API_BASE}/workflows",
+            f"{API_INTERNAL_URL}/workflows",
             timeout=30,
         )
         resp.raise_for_status()
@@ -62,12 +63,11 @@ def api_get_all_workflows() -> list[dict] | None:
         st.error(f"Failed to fetch workflows: {exc}")
         return None
 
-
 def api_approve(workflow_id: str) -> dict | None:
     """POST /workflows/{id}/approve -- approve the HITL review."""
     try:
         resp = requests.post(
-            f"{API_BASE}/workflows/{workflow_id}/approve",
+            f"{API_INTERNAL_URL}/workflows/{workflow_id}/approve",
             timeout=120,
         )
         resp.raise_for_status()
@@ -296,8 +296,8 @@ elif current_state == "completed":
                     st.markdown("**Image**")
                     image_url = scene.get("image_url")
                     if image_url:
-                        # Construct full URL since the backend serves this relative path
-                        full_img_url = f"{API_BASE}{image_url}"
+                        # Construct full URL using the external API URL so the browser can reach the asset
+                        full_img_url = f"{API_EXTERNAL_URL}{image_url}"
                         st.image(full_img_url, use_container_width=True)
                         st.caption(f"Path: `{image_url}`")
                     else:
