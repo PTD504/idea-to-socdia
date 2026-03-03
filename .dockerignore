@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.git/
+.env
+tests/
+.pytest_cache/
+.streamlit/
+frontend/static/images/*
+!frontend/static/images/.gitkeep
+frontend/static/videos/*
+!frontend/static/videos/.gitkeep

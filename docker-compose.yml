@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: idea_socdia_backend
+    ports:
+      - "8000:8080"
+    env_file:
+      - .env
+    volumes:
+      # Map the local static directory for debugging generated files
+      - ./frontend/static:/app/frontend/static
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: idea_socdia_frontend
+    ports:
+      - "8501:8501"
+    environment:
+      # Container-to-container communication
+      - API_INTERNAL_URL=http://backend:8080
+      # Browser-to-host communication for fetching static images
+      - API_EXTERNAL_URL=http://localhost:8000
+    depends_on:
+      - backend
