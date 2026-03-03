@@ -64,10 +64,16 @@ async def test_generate_interleaved_storyboard(service, mock_genai_client):
     # Setup mock parsed response
     mock_scene = StoryboardScene(
         narration="The sun rises.",
+        voiceover_text="Good morning, world.",
         image_prompt="A beautiful sunrise over the city.",
         video_prompt="Time-lapse video of the sun rising."
     )
-    mock_storyboard = Storyboard(scenes=[mock_scene])
+    mock_storyboard = Storyboard(
+        youtube_title="Beautiful Sunrise",
+        youtube_description="A time-lapse of the city.",
+        thumbnail_prompt="A glowing sun over skyscrapers.",
+        scenes=[mock_scene]
+    )
     
     mock_response = MagicMock()
     mock_response.parsed = mock_storyboard
