@@ -58,6 +58,13 @@ async def health_check() -> dict:
     return {"status": "ok"}
 
 
+@router.get("/workflows")
+async def list_workflows() -> list[dict]:
+    """Return a list of all workflows currently in memory."""
+    manager = _require_manager()
+    return manager.get_all_workflows()
+
+
 @router.post("/workflows")
 async def create_workflow(body: StartWorkflowRequest) -> dict:
     """Start a new content-creation workflow.

@@ -29,6 +29,10 @@ class StoryboardScene(BaseModel):
     narration: str = Field(
         description="The spoken text or voiceover narration for this scene."
     )
+    voiceover_text: Optional[str] = Field(
+        default=None,
+        description="The exact text that an AI voice should speak for this scene.",
+    )
     image_prompt: str = Field(
         description="A detailed prompt for generating an image for this scene."
     )
@@ -41,6 +45,15 @@ class StoryboardScene(BaseModel):
 class Storyboard(BaseModel):
     """The complete structured storyboard returned by the model."""
 
+    youtube_title: str = Field(
+        description="A highly engaging, SEO-optimized title for the YouTube video."
+    )
+    youtube_description: str = Field(
+        description="A full SEO-optimized description with hashtags for the YouTube video."
+    )
+    thumbnail_prompt: str = Field(
+        description="A detailed prompt for generating the YouTube thumbnail image."
+    )
     scenes: list[StoryboardScene] = Field(
         description="A sequential list of scenes making up the storyboard."
     )

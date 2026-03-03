@@ -43,6 +43,9 @@ class WorkflowManager(ABC):
         Args:
             workflow_id: Identifier returned by ``start_workflow``.
         """
+    @abstractmethod
+    def get_all_workflows(self) -> list[dict]:
+        """Return a list of all active workflows and their statuses."""
         ...
 
 
@@ -109,6 +112,8 @@ class ContentWorkflowManager(WorkflowManager):
 
         self._workflows[workflow_id] = {
             "state_machine": sm,
+            "topic": topic,
+            "style": style,
             "storyboard": None,
             "youtube_video_id": None,
         }
@@ -237,3 +242,16 @@ class ContentWorkflowManager(WorkflowManager):
 
         sm: ContentStateMachine = entry["state_machine"]
         sm.approve_review()
+
+    def get_all_workflows(self) -> list[dict]:
+        """Return a list summarizing all active workflows."""
+        summary = []
+        for wid, entry in self._workflows.items():
+            sm: ContentStateMachine = entry["state_machine"]
+            summary.append({
+                "workflow_id": wid,
+                "topic": entry.get("topic"),
+                "style": entry.get("style"),
+                "current_state": sm.current_state.value,
+            })
+        return summary
