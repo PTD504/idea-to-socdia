@@ -48,6 +48,16 @@ class WorkflowManager(ABC):
         """Return a list of all active workflows and their statuses."""
         ...
 
+    @abstractmethod
+    async def stream_workflow(
+        self,
+        topic: str,
+        style: str,
+        deep_description: str | None = None,
+    ):
+        """Streams content creation (text and media events)."""
+        ...
+
 
 # ------------------------------------------------------------------
 # Concrete Implementation
@@ -257,3 +267,21 @@ class ContentWorkflowManager(WorkflowManager):
                 "current_state": sm.current_state.value,
             })
         return summary
+    async def stream_workflow(
+        self,
+        topic: str,
+        style: str,
+        deep_description: str | None = None,
+    ):
+        """Pass-through to the underlying LLM service streaming content generator."""
+        logger.info(
+            "Starting workflow stream -- topic=%r, style=%r, deep_description=%r",
+            topic, style, deep_description,
+        )
+        stream = self._llm_service.stream_creative_content(
+            topic=topic,
+            style=style,
+            deep_description=deep_description,
+        )
+        async for chunk in stream:
+            yield chunk

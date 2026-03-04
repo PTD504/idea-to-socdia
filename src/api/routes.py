@@ -6,8 +6,11 @@ Provides health-check, workflow creation, status, and approval endpoints.
 
 import logging
 
+import asyncio
+import json
 from typing import Optional
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from src.core.state_machine import InvalidTransitionError
@@ -82,6 +85,40 @@ async def create_workflow(body: StartWorkflowRequest) -> dict:
     )
     status = await manager.get_workflow_status(workflow_id)
     return status
+
+
+@router.post("/stream_workflow")
+async def stream_workflow(body: StartWorkflowRequest):
+    """Start and stream a content-creation workflow.
+    
+    Yields NDJSON encoded dictionary chunks containing text generation
+    and tool execution statuses.
+    """
+    manager = _require_manager()
+    
+    async def event_generator():
+        try:
+            stream = manager.stream_workflow(
+                topic=body.topic,
+                style=body.style,
+                deep_description=body.deep_description
+            )
+            async for chunk in stream:
+                # NDJSON format: JSON object followed by newline
+                yield json.dumps(chunk) + "\n"
+                
+        except asyncio.CancelledError:
+            logger.info("Client disconnected from streaming workflow early.")
+            raise # Re-raise for FastAPI to handle disconnection cleanly
+        except Exception as e:
+            logger.error("Error during streaming workflow: %s", e)
+            error_chunk = {"type": "error", "error": str(e)}
+            yield json.dumps(error_chunk) + "\n"
+            
+    return StreamingResponse(
+        event_generator(), 
+        media_type="application/x-ndjson"
+    )
 
 
 @router.get("/workflows/{workflow_id}")

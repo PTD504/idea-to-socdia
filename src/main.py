@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
 
 
 import os
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(
@@ -57,6 +58,15 @@ app = FastAPI(
     description="HITL content-creation workflow engine.",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+# Configure CORS for local development (Next.js frontend default port 3000)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "*"], # Support direct localhost requests
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Ensure the static directory exists before mounting

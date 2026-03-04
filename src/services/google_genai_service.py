@@ -19,44 +19,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-# ------------------------------------------------------------------
-# Structured Output Models
-# ------------------------------------------------------------------
-
-class StoryboardScene(BaseModel):
-    """Represents a single scene in the generated storyboard."""
-
-    narration: str = Field(
-        description="The spoken text or voiceover narration for this scene."
-    )
-    voiceover_text: Optional[str] = Field(
-        default=None,
-        description="The exact text that an AI voice should speak for this scene.",
-    )
-    image_prompt: str = Field(
-        description="A detailed prompt for generating an image for this scene."
-    )
-    video_prompt: Optional[str] = Field(
-        default=None,
-        description="An optional detailed prompt for generating a video clip for this scene.",
-    )
-
-
-class Storyboard(BaseModel):
-    """The complete structured storyboard returned by the model."""
-
-    youtube_title: str = Field(
-        description="A highly engaging, SEO-optimized title for the YouTube video."
-    )
-    youtube_description: str = Field(
-        description="A full SEO-optimized description with hashtags for the YouTube video."
-    )
-    thumbnail_prompt: str = Field(
-        description="A detailed prompt for generating the YouTube thumbnail image."
-    )
-    scenes: list[StoryboardScene] = Field(
-        description="A sequential list of scenes making up the storyboard."
-    )
+# Removed structured models as we now stream and rely on tool calls for media.
 
 
 # ------------------------------------------------------------------
@@ -82,6 +45,12 @@ class GoogleGenAIService(LLMService):
 
         self.client = genai.Client(api_key=api_key)
         self.model_name = model_name
+        
+        from src.services.media_service import GoogleVertexMediaService
+        self.media_service = GoogleVertexMediaService()
+
+        # Tools list for Gemini
+        self.tools = self.media_service.get_tools()
 
     async def generate_dynamic_system_prompt(
         self,
@@ -113,20 +82,11 @@ class GoogleGenAIService(LLMService):
             f"The 'Creative Director' agent will be responsible for creating a storyboard "
             f"about '{topic}' in the style of '{style}'.\n\n"
             f"{description_instruction}\n"
-            "The system prompt should instruct the agent on the tone, pacing, visual "
-            "requirements, and how to balance narration with visual descriptions.\n\n"
-            "CRITICAL OPTIMISATION REQUIREMENTS:\n"
-            "1. STRICTLY FORBID copy-pasting the exact same style prefixes or suffixes across different scenes. "
-            "Do not start every prompt with 'Ultra high-end...' or end with '...4k resolution'. "
-            "Vary the vocabulary and sentence structure naturally.\n"
-            "2. Enforce High Shot Diversity: The storyboard MUST flow logically using a mix of different "
-            "camera angles (e.g., Wide Establishing Shots, Medium Tracking Shots, Extreme Close-ups, "
-            "High-angle, Drone shots) to create a dynamic visual narrative.\n"
-            "3. Ensure Visual Progression: The prompts should describe a progressing scene or changing "
-            "environment, not simply variations of the exact same object.\n"
-            "4. For EVERY single scene in the storyboard, the 'Creative Director' MUST provide BOTH "
-            "a highly detailed `image_prompt` AND a highly detailed `video_prompt`. No scene can be "
-            "left without both.\n\n"
+            "The system prompt MUST explicitly instruct the agent: 'You are a visual storyteller. "
+            "Don't just talk about the scene—SHOW IT using the tools. When you visualize a scene, "
+            "DO NOT describe it in text like \"[Image of...]\". Instead, IMMEDIATELY call the `generate_image` or "
+            "`generate_video` tool. Do not wait until the end. Weave the media calls naturally into the flow. "
+            "Keep your narration concise and engaging between visual beats.'\n\n"
             "Return ONLY the raw system prompt text. Do not include introductory remarks."
         )
 
@@ -140,49 +100,96 @@ class GoogleGenAIService(LLMService):
 
         return response.text.strip()
 
-    async def generate_interleaved_storyboard(
+    async def stream_creative_content(
         self,
-        dynamic_system_prompt: str,
         topic: str,
-        **kwargs,
-    ) -> dict:
-        """Generate a storyboard using native Structured Outputs.
-
-        Passes the dynamic system prompt as instructions, and requests the
-        model to output strictly matching the Pydantic `Storyboard` schema.
-        """
-        prompt = (
-            f"Please generate a complete storyboard for the topic: '{topic}'. "
-            "Follow all instructions in your system prompt perfectly."
+        deep_description: str | None = None,
+        style: str | None = None,
+    ):
+        """Generate content by streaming and handling function calls asynchronously."""
+        
+        dynamic_system_prompt = await self.generate_dynamic_system_prompt(
+            topic=topic,
+            deep_description=deep_description,
+            style=style or "cinematic",
         )
-
-        # Configure the schema to use our Pydantic classes
+        
+        # Configure the tool settings
+        # Disabling automatic function calls lets us stream the `tool_start` to the UI
         config = types.GenerateContentConfig(
             system_instruction=dynamic_system_prompt,
-            response_mime_type="application/json",
-            response_schema=Storyboard,
             temperature=0.7,
+            tools=self.tools,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                 disable=True # We will handle calls manually
+            )
         )
-
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=prompt,
-            config=config,
-        )
-
-        # The SDK natively parses application/json when response_schema is provided.
-        # Ensure we return a dict representation.
-        if hasattr(response, "parsed") and response.parsed:
-            # If the SDK parsed it back into our Pydantic model natively
-            if isinstance(response.parsed, Storyboard):
-                return response.parsed.model_dump()
-            elif isinstance(response.parsed, dict):
-                return response.parsed
-
-        # Fallback if manual parsing is needed (e.g., text block fallback)
-        if response.text:
-            # Pydantic v2's model_validate_json
-            parsed_storyboard = Storyboard.model_validate_json(response.text)
-            return parsed_storyboard.model_dump()
-
-        raise ValueError("Failed to retrieve or parse the structured storyboard.")
+        
+        prompt = f"Please begin generating the content for the topic: '{topic}'."
+        
+        logger.info("Starting stream chat session for topic: %s", topic)
+        chat = self.client.chats.create(model=self.model_name, config=config)
+        
+        # We use a loop here because after we send a tool response back, we get a NEW stream 
+        # that we must also asynchronously iterate over to continue the sequence.
+        # We start by sending the initial user prompt.
+        current_request = prompt
+        
+        # Keep generating until the model decides it is done (stops using tools and sends finalizing text)
+        while True:
+            response_stream = chat.send_message_stream(current_request)
+            called_tools = False
+            responses_to_send_back = []
+            
+            for chunk in response_stream:
+                # The google-genai SDK throws a warning/error if we try to access .text 
+                # when the chunk only contains a function_call. 
+                # We check the part type safely.
+                has_text = any(part.text for part in chunk.candidates[0].content.parts if part.text) if chunk.candidates and chunk.candidates[0].content.parts else False
+                
+                if has_text and getattr(chunk, "text", None):
+                    yield {"type": "text", "content": chunk.text}
+                    
+                if chunk.function_calls:
+                    called_tools = True
+                    for call in chunk.function_calls:
+                        name = call.name
+                        args = call.args
+                        logger.info("Model requested tool execution: %s with args: %s", name, args)
+                        
+                        # Notify frontend that tool execution started
+                        yield {"type": "tool_start", "tool": name, "args": args}
+                        
+                        result_url = ""
+                        try:
+                            # Execute the physical tool function natively in python
+                            if name == "generate_image":
+                                result_url = await self.media_service.generate_image(prompt=args.get("prompt", ""))
+                            elif name == "generate_video":
+                                result_url = await self.media_service.generate_video(prompt=args.get("prompt", ""))
+                            else:
+                                logger.error("Model tried to call unknown tool: %s", name)
+                                result_url = "https://placehold.co/1920x1080?text=Unknown+Tool"
+                        except Exception as e:
+                            logger.error("Error executing tool %s: %s", name, e)
+                            result_url = "https://placehold.co/1920x1080?text=Generation+Failed"
+                            
+                        # Notify frontend that tool execution finished
+                        yield {"type": "media_result", "tool": name, "url": result_url}
+                        
+                        # Prepare the result dictionary to pass back to the model
+                        function_response = {"url": result_url}
+                        responses_to_send_back.append(
+                            types.Part.from_function_response(
+                                name=name,
+                                response=function_response
+                            )
+                        )
+            
+            # Now that the generator is completely exhausted and chat.history is fully updated for this turn
+            if called_tools and responses_to_send_back:
+                # Instead of a string prompt, our next "request" is the parts list containing tool outputs
+                current_request = responses_to_send_back
+            else:
+                # If the model didn't call any tools, it means it's finished writing.
+                break

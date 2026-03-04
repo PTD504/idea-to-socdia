@@ -32,21 +32,23 @@ class LLMService(ABC):
         ...
 
     @abstractmethod
-    async def generate_interleaved_storyboard(
+    async def stream_creative_content(
         self,
-        dynamic_system_prompt: str,
         topic: str,
-        **kwargs,
-    ) -> dict:
-        """Generate an interleaved storyboard of text and image prompts.
+        deep_description: str | None = None,
+        style: str | None = None,
+    ):
+        """Stream interleaved text and media generation events.
 
         Args:
-            dynamic_system_prompt: The system prompt produced by
-                ``generate_dynamic_system_prompt``.
-            topic: The content topic.
+            topic: The core subject of the content.
+            deep_description: Optional detailed context or instructions.
+            style: Optional artistic or tonal style instructions.
 
-        Returns:
-            A dict representing the structured storyboard
-            (keys / schema TBD by concrete implementation).
+        Yields:
+            Dicts representing streaming chunks, such as:
+            - {"type": "text", "content": "..."}
+            - {"type": "tool_start", "tool": "...", "args": {...}}
+            - {"type": "media_result", "tool": "...", "url": "..."}
         """
         ...
