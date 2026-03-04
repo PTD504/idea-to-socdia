@@ -87,6 +87,7 @@ class GoogleGenAIService(LLMService):
         self,
         topic: str,
         style: str,
+        deep_description: str | None = None,
         **kwargs,
     ) -> str:
         """Ask Gemini to act as a Meta-Agent and write a System Prompt.
@@ -94,11 +95,24 @@ class GoogleGenAIService(LLMService):
         This prompt is intended for a 'Creative Director' agent tailoring
         output to the specific topic and style.
         """
+        description_instruction = ""
+        if deep_description:
+            description_instruction = (
+                f"A deep_description is provided: '{deep_description}'. "
+                "You MUST prioritize these details (mood, lighting, specific elements) over the general topic.\n"
+            )
+        else:
+            description_instruction = (
+                "No deep_description is provided. You MUST infer the details (mood, lighting, specific elements) "
+                "based on the general topic.\n"
+            )
+
         meta_prompt = (
             "You are an expert prompt-engineer and Meta-Agent. Your task is to write a "
             "comprehensive, highly specific System Prompt for a 'Creative Director' agent. "
             f"The 'Creative Director' agent will be responsible for creating a storyboard "
             f"about '{topic}' in the style of '{style}'.\n\n"
+            f"{description_instruction}\n"
             "The system prompt should instruct the agent on the tone, pacing, visual "
             "requirements, and how to balance narration with visual descriptions.\n\n"
             "CRITICAL OPTIMISATION REQUIREMENTS:\n"

@@ -12,7 +12,7 @@ class WorkflowManager(ABC):
     """High-level interface for workflow lifecycle operations."""
 
     @abstractmethod
-    async def start_workflow(self, topic: str, style: str) -> str:
+    async def start_workflow(self, topic: str, style: str, deep_description: str | None = None) -> str:
         """Create and kick off a new content workflow.
 
         Args:
@@ -94,7 +94,7 @@ class ContentWorkflowManager(WorkflowManager):
         """Read-only access to the in-memory workflow store."""
         return self._workflows
 
-    async def start_workflow(self, topic: str, style: str) -> str:
+    async def start_workflow(self, topic: str, style: str, deep_description: str | None = None) -> str:
         """Orchestrate a new content workflow end-to-end.
 
         1. Create a state machine (starts at TOPIC_ANALYSIS_AND_PROMPTING).
@@ -114,13 +114,14 @@ class ContentWorkflowManager(WorkflowManager):
             "state_machine": sm,
             "topic": topic,
             "style": style,
+            "deep_description": deep_description,
             "storyboard": None,
             "youtube_video_id": None,
         }
 
         logger.info(
-            "Workflow %s started -- topic=%r, style=%r",
-            workflow_id, topic, style,
+            "Workflow %s started -- topic=%r, style=%r, deep_description=%r",
+            workflow_id, topic, style, deep_description,
         )
 
         # -- Phase 1: TOPIC_ANALYSIS_AND_PROMPTING --
@@ -128,6 +129,7 @@ class ContentWorkflowManager(WorkflowManager):
         dynamic_system_prompt = await self._llm_service.generate_dynamic_system_prompt(
             topic=topic,
             style=style,
+            deep_description=deep_description,
         )
         logger.info("Workflow %s: dynamic system prompt generated.", workflow_id)
 

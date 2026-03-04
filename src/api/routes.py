@@ -6,6 +6,7 @@ Provides health-check, workflow creation, status, and approval endpoints.
 
 import logging
 
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -45,6 +46,7 @@ class StartWorkflowRequest(BaseModel):
     """Body for POST /workflows."""
     topic: str
     style: str
+    deep_description: Optional[str] = None
 
 
 # ------------------------------------------------------------------
@@ -76,6 +78,7 @@ async def create_workflow(body: StartWorkflowRequest) -> dict:
     workflow_id = await manager.start_workflow(
         topic=body.topic,
         style=body.style,
+        deep_description=body.deep_description,
     )
     status = await manager.get_workflow_status(workflow_id)
     return status

@@ -89,7 +89,7 @@ async def test_start_workflow_calls_llm_service(manager, mock_llm_service):
     await manager.start_workflow(topic="Cats", style="Cinematic")
 
     mock_llm_service.generate_dynamic_system_prompt.assert_awaited_once_with(
-        topic="Cats", style="Cinematic",
+        topic="Cats", style="Cinematic", deep_description=None,
     )
     mock_llm_service.generate_interleaved_storyboard.assert_awaited_once_with(
         dynamic_system_prompt="You are a Creative Director specialising in cats.",

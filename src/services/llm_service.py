@@ -16,6 +16,7 @@ class LLMService(ABC):
         self,
         topic: str,
         style: str,
+        deep_description: str | None = None,
         **kwargs,
     ) -> str:
         """Build a tailored system prompt for the given topic and style.
@@ -23,6 +24,7 @@ class LLMService(ABC):
         Args:
             topic: The subject the content will cover.
             style: Desired visual / tonal style for the content.
+            deep_description: Optional detailed description elements.
 
         Returns:
             A fully-formed system prompt string.
