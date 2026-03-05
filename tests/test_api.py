@@ -8,6 +8,7 @@ def test_stream_workflow_endpoint():
     request_data = {
         "topic": "A futuristic city in the clouds.",
         "style": "cinematic",
+        "target_format": "facebook_post",
         "deep_description": "Flying cars, neon signs."
     }
     

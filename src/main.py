@@ -69,9 +69,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ensure the static directory exists before mounting
-static_dir = os.path.join("frontend", "static")
-os.makedirs(static_dir, exist_ok=True)
+# Ensure the static directories exist before mounting
+static_dir = os.path.join("src", "static")
+os.makedirs(os.path.join(static_dir, "generated", "images"), exist_ok=True)
+os.makedirs(os.path.join(static_dir, "generated", "videos"), exist_ok=True)
 
 # Mount the static directory to serve generated images
 app.mount("/static", StaticFiles(directory=static_dir), name="static")

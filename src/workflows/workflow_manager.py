@@ -53,6 +53,7 @@ class WorkflowManager(ABC):
         self,
         topic: str,
         style: str,
+        target_format: str,
         deep_description: str | None = None,
     ):
         """Streams content creation (text and media events)."""
@@ -271,16 +272,18 @@ class ContentWorkflowManager(WorkflowManager):
         self,
         topic: str,
         style: str,
+        target_format: str,
         deep_description: str | None = None,
     ):
         """Pass-through to the underlying LLM service streaming content generator."""
         logger.info(
-            "Starting workflow stream -- topic=%r, style=%r, deep_description=%r",
-            topic, style, deep_description,
+            "Starting workflow stream -- topic=%r, style=%r, target_format=%r, deep_description=%r",
+            topic, style, target_format, deep_description,
         )
         stream = self._llm_service.stream_creative_content(
             topic=topic,
             style=style,
+            target_format=target_format,
             deep_description=deep_description,
         )
         async for chunk in stream:

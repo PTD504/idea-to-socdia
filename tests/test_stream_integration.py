@@ -17,6 +17,7 @@ async def main():
     
     stream = service.stream_creative_content(
         topic=topic,
+        target_format="youtube_shorts",
         deep_description="Neon lights reflecting in puddles. Raining. High-tech, low-life.",
         style="cinematic, highly detailed, Blade Runner style"
     )

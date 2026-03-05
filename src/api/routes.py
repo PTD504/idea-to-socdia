@@ -49,6 +49,7 @@ class StartWorkflowRequest(BaseModel):
     """Body for POST /workflows."""
     topic: str
     style: str
+    target_format: str
     deep_description: Optional[str] = None
 
 
@@ -101,6 +102,7 @@ async def stream_workflow(body: StartWorkflowRequest):
             stream = manager.stream_workflow(
                 topic=body.topic,
                 style=body.style,
+                target_format=body.target_format,
                 deep_description=body.deep_description
             )
             async for chunk in stream:

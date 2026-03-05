@@ -35,6 +35,7 @@ class LLMService(ABC):
     async def stream_creative_content(
         self,
         topic: str,
+        target_format: str,
         deep_description: str | None = None,
         style: str | None = None,
     ):
@@ -42,6 +43,7 @@ class LLMService(ABC):
 
         Args:
             topic: The core subject of the content.
+            target_format: The intended platform format (e.g., 'facebook_post', 'youtube_short').
             deep_description: Optional detailed context or instructions.
             style: Optional artistic or tonal style instructions.
 

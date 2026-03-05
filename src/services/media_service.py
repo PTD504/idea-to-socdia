@@ -8,6 +8,7 @@ and a mock implementation simulating Google Vertex AI rendering times.
 import asyncio
 import logging
 import uuid
+import time
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
@@ -52,8 +53,8 @@ class GoogleVertexMediaService(MediaService):
     Uses `imagen-4.0-generate-001` and `veo-3.0-fast-generate-001` models.
     """
 
-    STATIC_IMAGES_DIR = os.path.join("frontend", "static", "generated", "images")
-    STATIC_VIDEOS_DIR = os.path.join("frontend", "static", "generated", "videos")
+    STATIC_IMAGES_DIR = os.path.join("src", "static", "generated", "images")
+    STATIC_VIDEOS_DIR = os.path.join("src", "static", "generated", "videos")
 
     def __init__(self) -> None:
         """Initialise the Google GenAI client for Vertex AI."""
@@ -107,7 +108,7 @@ class GoogleVertexMediaService(MediaService):
                     
             await asyncio.to_thread(_save)
             
-            url = f"/generated/images/{filename}"
+            url = f"http://localhost:8000/static/generated/images/{filename}"
             logger.info("Image generated and saved to: %s", url)
             return url
             
@@ -116,51 +117,58 @@ class GoogleVertexMediaService(MediaService):
             return "https://placehold.co/1920x1080?text=Image+Generation+Failed"
             
     async def generate_video(self, prompt: str) -> str:
-        """Generate a video using the Gemini API and save it locally.
-        
+        """Generate a video using the Vertex AI Veo API and save it locally.
+
         Args:
             prompt: The text prompt describing the video to generate.
-            
+
         Returns:
             The public URL to access the generated video.
         """
-        logger.info("Generating real video for prompt: %s", prompt[:80])
+        logger.info("Generating video for prompt: %s", prompt[:80])
         asset_id = uuid.uuid4().hex[:12]
         filename = f"vid_{asset_id}.mp4"
         filepath = os.path.join(self.STATIC_VIDEOS_DIR, filename)
-        
+
         try:
-            def _generate():
-                return self.client.models.generate_videos(
+            def _generate_and_save():
+                # Start the long-running video generation operation
+                operation = self.client.models.generate_videos(
                     model='veo-3.0-fast-generate-001',
                     prompt=prompt,
                     config=types.GenerateVideosConfig(
-                        aspect_ratio="16:9",
+                        aspect_ratio="9:16",
                     )
                 )
-                
-            # This is a synchronous call that waits for the generation to finish
-            result = await asyncio.to_thread(_generate)
-            
-            if not result.generated_videos:
-                 raise ValueError("No video returned from Vertex AI Video Generation Pipeline.")
-            
-            generated_video = result.generated_videos[0]
-            video_bytes = generated_video.video.video_bytes
-            
-            def _save():
+
+                # Poll until the operation is complete
+                while not operation.done:
+                    logger.info("Waiting for video generation to complete...")
+                    time.sleep(10)
+                    operation = self.client.operations.get(operation)
+
+                # Validate the response contains generated videos
+                if not operation.response or not operation.response.generated_videos:
+                    logger.warning("Operation completed but returned no videos. Response: %s", operation.response)
+                    raise ValueError("No video returned from Veo video generation.")
+
+                # On Vertex AI, video bytes are available directly without calling client.files.download()
+                video_bytes = operation.response.generated_videos[0].video.video_bytes
+                if not video_bytes:
+                    raise ValueError("Operation completed but video_bytes is empty.")
+
                 with open(filepath, "wb") as f:
                     f.write(video_bytes)
-                    
-            await asyncio.to_thread(_save)
-            
-            url = f"/generated/videos/{filename}"
-            logger.info("Video generated and saved to: %s", url)
+
+            await asyncio.to_thread(_generate_and_save)
+
+            url = f"http://localhost:8000/static/generated/videos/{filename}"
+            logger.info("Video saved successfully: %s", url)
             return url
-            
+
         except Exception as e:
-             logger.error("Failed to generate video. Fallback to placeholder. Error: %s", str(e))
-             return "https://placehold.co/1920x1080?text=Video+Generation+Failed"
+            logger.error("Failed to generate video. Error: %s", str(e))
+            return "https://placehold.co/1920x1080?text=Video+Generation+Failed"
              
     def get_tools(self) -> list:
         """Returns the list of functions intended to be passed to the Gemini 'tools' parameter.

@@ -29,7 +29,7 @@ load_dotenv()
 class GoogleGenAIService(LLMService):
     """Implementation of LLMService using the official google-genai SDK."""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, model_name: str = "gemini-3-flash-preview"):
         """Initialise the Google GenAI client.
 
         The client automatically picks up the GEMINI_API_KEY environment
@@ -103,6 +103,7 @@ class GoogleGenAIService(LLMService):
     async def stream_creative_content(
         self,
         topic: str,
+        target_format: str,
         deep_description: str | None = None,
         style: str | None = None,
     ):
@@ -113,6 +114,15 @@ class GoogleGenAIService(LLMService):
             deep_description=deep_description,
             style=style or "cinematic",
         )
+        
+        # Inject platform format logic
+        format_instruction = (
+            f"You are generating content specifically formatted for {target_format}. "
+            "Adjust your tone, structure, and pacing accordingly. "
+            "If the format is a video platform (like YouTube Shorts), prioritize calling the `generate_video` tool. "
+            "If it is a static platform (like a Facebook post), prioritize the `generate_image` tool.\n\n"
+        )
+        dynamic_system_prompt = format_instruction + dynamic_system_prompt
         
         # Configure the tool settings
         # Disabling automatic function calls lets us stream the `tool_start` to the UI
