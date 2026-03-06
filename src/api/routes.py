@@ -51,6 +51,7 @@ class StartWorkflowRequest(BaseModel):
     style: str
     target_format: str
     deep_description: Optional[str] = None
+    reference_image_base64: Optional[str] = None
 
 
 # ------------------------------------------------------------------
@@ -103,7 +104,8 @@ async def stream_workflow(body: StartWorkflowRequest):
                 topic=body.topic,
                 style=body.style,
                 target_format=body.target_format,
-                deep_description=body.deep_description
+                deep_description=body.deep_description,
+                reference_image_base64=body.reference_image_base64
             )
             async for chunk in stream:
                 # NDJSON format: JSON object followed by newline

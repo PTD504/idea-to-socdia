@@ -38,6 +38,7 @@ class LLMService(ABC):
         target_format: str,
         deep_description: str | None = None,
         style: str | None = None,
+        reference_image_base64: str | None = None,
     ):
         """Stream interleaved text and media generation events.
 
@@ -46,6 +47,7 @@ class LLMService(ABC):
             target_format: The intended platform format (e.g., 'facebook_post', 'youtube_short').
             deep_description: Optional detailed context or instructions.
             style: Optional artistic or tonal style instructions.
+            reference_image_base64: Optional visual context.
 
         Yields:
             Dicts representing streaming chunks, such as:

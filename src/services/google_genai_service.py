@@ -29,7 +29,7 @@ load_dotenv()
 class GoogleGenAIService(LLMService):
     """Implementation of LLMService using the official google-genai SDK."""
 
-    def __init__(self, model_name: str = "gemini-3-flash-preview"):
+    def __init__(self, model_name: str = "gemini-2.5-flash"):
         """Initialise the Google GenAI client.
 
         The client automatically picks up the GEMINI_API_KEY environment
@@ -106,6 +106,7 @@ class GoogleGenAIService(LLMService):
         target_format: str,
         deep_description: str | None = None,
         style: str | None = None,
+        reference_image_base64: str | None = None,
     ):
         """Generate content by streaming and handling function calls asynchronously."""
         
@@ -135,15 +136,25 @@ class GoogleGenAIService(LLMService):
             )
         )
         
-        prompt = f"Please begin generating the content for the topic: '{topic}'."
+        # Setup media service reference image state for tool calls
+        self.media_service.set_reference_image(reference_image_base64)
         
+        initial_parts = [f"Please begin generating the content for the topic: '{topic}'."]
+        if reference_image_base64:
+            import base64
+            image_bytes = base64.b64decode(reference_image_base64)
+            # Assuming generic image MIME type. Gemini SDK will inspect the bytes directly.
+            initial_parts.append(
+                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+            )
+            
         logger.info("Starting stream chat session for topic: %s", topic)
         chat = self.client.chats.create(model=self.model_name, config=config)
         
         # We use a loop here because after we send a tool response back, we get a NEW stream 
         # that we must also asynchronously iterate over to continue the sequence.
         # We start by sending the initial user prompt.
-        current_request = prompt
+        current_request = initial_parts
         
         # Keep generating until the model decides it is done (stops using tools and sends finalizing text)
         while True:

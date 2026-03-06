@@ -55,6 +55,7 @@ class WorkflowManager(ABC):
         style: str,
         target_format: str,
         deep_description: str | None = None,
+        reference_image_base64: str | None = None,
     ):
         """Streams content creation (text and media events)."""
         ...
@@ -274,17 +275,19 @@ class ContentWorkflowManager(WorkflowManager):
         style: str,
         target_format: str,
         deep_description: str | None = None,
+        reference_image_base64: str | None = None,
     ):
         """Pass-through to the underlying LLM service streaming content generator."""
         logger.info(
-            "Starting workflow stream -- topic=%r, style=%r, target_format=%r, deep_description=%r",
-            topic, style, target_format, deep_description,
+            "Starting workflow stream -- topic=%r, style=%r, target_format=%r, deep_description=%r, has_ref_image=%r",
+            topic, style, target_format, deep_description, reference_image_base64 is not None,
         )
         stream = self._llm_service.stream_creative_content(
             topic=topic,
             style=style,
             target_format=target_format,
             deep_description=deep_description,
+            reference_image_base64=reference_image_base64,
         )
         async for chunk in stream:
             yield chunk

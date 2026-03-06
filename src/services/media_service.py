@@ -43,8 +43,14 @@ class MediaService(ABC):
 
 
 import os
+import io
+import base64
+from PIL import Image
 from google import genai
 from google.genai import types
+
+use_mock_image = os.getenv("USE_MOCK_IMAGE", "false") == "true"
+use_mock_video = os.getenv("USE_MOCK_VIDEO", "false") == "true"
 
 
 class GoogleVertexMediaService(MediaService):
@@ -62,9 +68,25 @@ class GoogleVertexMediaService(MediaService):
         # This will automatically pick up GOOGLE_CLOUD_PROJECT from the environment.
         self.client = genai.Client(vertexai=True)
         
+        # State variable to hold the reference image
+        self.reference_image_pil: Image.Image | None = None
+        
         # Ensure the static directories exist
         os.makedirs(self.STATIC_IMAGES_DIR, exist_ok=True)
         os.makedirs(self.STATIC_VIDEOS_DIR, exist_ok=True)
+
+    def set_reference_image(self, b64_str: str | None) -> None:
+        """Decodes and stores a base64 image as a PIL image for model context."""
+        if b64_str:
+            try:
+                decoded_bytes = base64.b64decode(b64_str)
+                self.reference_image_pil = Image.open(io.BytesIO(decoded_bytes))
+                logger.info("Successfully loaded reference image into MediaService state.")
+            except Exception as e:
+                logger.error("Failed to decode reference image base64: %s", e)
+                self.reference_image_pil = None
+        else:
+            self.reference_image_pil = None
 
     async def generate_image(self, prompt: str) -> str:
         """Generate an image using the Gemini API and save it locally.
@@ -77,36 +99,52 @@ class GoogleVertexMediaService(MediaService):
         """
         logger.info("Generating real image for prompt: %s", prompt[:80])
         asset_id = uuid.uuid4().hex[:12]
+
+        if use_mock_image:
+            return f"https://placehold.co/1920x1080/000000/FFF?text=Mock+Image"
+
         filename = f"img_{asset_id}.png"
         filepath = os.path.join(self.STATIC_IMAGES_DIR, filename)
         
         try:
             # Offload the synchronous SDK call to a background thread
-            def _generate():
-                return self.client.models.generate_images(
-                    model='imagen-4.0-generate-001',
-                    prompt=prompt,
-                    config=types.GenerateImagesConfig(
-                        number_of_images=1,
-                        aspect_ratio="16:9",
-                        output_mime_type="image/png"
-                    )
-                )
+            def _generate_and_save():
+                contents = [prompt]
+                if self.reference_image_pil:
+                    contents.append(self.reference_image_pil)
                 
-            result = await asyncio.to_thread(_generate)
-            
-            if not result.generated_images:
-                raise ValueError("No images returned from Vertex AI Image Generation Pipeline.")
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        response = self.client.models.generate_content(
+                            model="gemini-2.5-flash-image",
+                            contents=contents,
+                            config=types.GenerateContentConfig(
+                                response_modalities=['IMAGE'],
+                                image_config=types.ImageConfig(aspect_ratio="16:9", image_size="2K"),
+                            )
+                        )
+                        break
+                    except Exception as e:
+                        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                            if attempt < max_retries - 1:
+                                logger.warning("Rate limit hit generating image. Retrying in 20s (attempt %d/3)...", attempt + 1)
+                                time.sleep(20)
+                                continue
+                        raise e
                 
-            generated_image = result.generated_images[0]
-            image_bytes = generated_image.image.image_bytes
-            
-            # Save image bytes locally
-            def _save():
-                with open(filepath, "wb") as f:
-                    f.write(image_bytes)
-                    
-            await asyncio.to_thread(_save)
+                saved = False
+                if response.parts:
+                    for part in response.parts:
+                        if image := part.as_image():
+                            image.save(filepath)
+                            saved = True
+                            break
+                            
+                if not saved:
+                    raise ValueError("No image returned by Gemini Image Generation Pipeline.")
+                
+            await asyncio.to_thread(_generate_and_save)
             
             url = f"http://localhost:8000/static/generated/images/{filename}"
             logger.info("Image generated and saved to: %s", url)
@@ -127,19 +165,39 @@ class GoogleVertexMediaService(MediaService):
         """
         logger.info("Generating video for prompt: %s", prompt[:80])
         asset_id = uuid.uuid4().hex[:12]
+
+        if use_mock_video:
+            return f"https://placehold.co/1920x1080/000000/FFF?text=Mock+Video"
+
         filename = f"vid_{asset_id}.mp4"
         filepath = os.path.join(self.STATIC_VIDEOS_DIR, filename)
 
         try:
             def _generate_and_save():
                 # Start the long-running video generation operation
-                operation = self.client.models.generate_videos(
-                    model='veo-3.0-fast-generate-001',
-                    prompt=prompt,
-                    config=types.GenerateVideosConfig(
-                        aspect_ratio="9:16",
+                kwargs = {
+                    "model": "veo-3.0-fast-generate-001",
+                    "prompt": prompt,
+                    "config": types.GenerateVideosConfig(
+                        aspect_ratio="16:9",
                     )
-                )
+                }
+                
+                if self.reference_image_pil:
+                    kwargs["image"] = self.reference_image_pil
+
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        operation = self.client.models.generate_videos(**kwargs)
+                        break
+                    except Exception as e:
+                        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                            if attempt < max_retries - 1:
+                                logger.warning("Rate limit hit generating video. Retrying in 20s (attempt %d/3)...", attempt + 1)
+                                time.sleep(20)
+                                continue
+                        raise e
 
                 # Poll until the operation is complete
                 while not operation.done:

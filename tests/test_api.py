@@ -9,7 +9,8 @@ def test_stream_workflow_endpoint():
         "topic": "A futuristic city in the clouds.",
         "style": "cinematic",
         "target_format": "facebook_post",
-        "deep_description": "Flying cars, neon signs."
+        "deep_description": "Flying cars, neon signs.",
+        "reference_image_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
     }
     
     # Use TestClient as a context manager to trigger FastAPI's lifespan events

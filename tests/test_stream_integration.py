@@ -19,7 +19,8 @@ async def main():
         topic=topic,
         target_format="youtube_shorts",
         deep_description="Neon lights reflecting in puddles. Raining. High-tech, low-life.",
-        style="cinematic, highly detailed, Blade Runner style"
+        style="cinematic, highly detailed, Blade Runner style",
+        reference_image_base64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
     )
     
     try:
