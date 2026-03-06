@@ -7,7 +7,7 @@ import { MagicTextarea } from "@/components/ui/MagicTextarea";
 import { StyleSelector } from "@/components/ui/StyleSelector";
 import { fetchStreamWorkflow, StreamChunk } from "@/lib/streamClient";
 import { motion } from "framer-motion";
-import { Wand2 } from "lucide-react";
+import { Wand2, Upload, X } from "lucide-react";
 
 export function StageInputForm() {
     const [isGenerating, setIsGenerating] = useState(false);
@@ -15,9 +15,13 @@ export function StageInputForm() {
         topic,
         deepDescription,
         style,
+        targetFormat,
+        referenceImageBase64,
         setTopic,
         setDeepDescription,
         setStyle,
+        setTargetFormat,
+        setReferenceImageBase64,
         setStage,
         appendStreamBlock,
         appendContentToLastTextBlock
@@ -25,16 +29,20 @@ export function StageInputForm() {
 
     const handleGenerate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!topic.trim()) return;
+
+        const currentState = useWorkflowStore.getState();
+
+        if (!currentState.topic.trim()) return;
 
         setStage("stream");
 
-        // Temporary hardcoded target_format to pass backend validation
+        // Bind the selected UI target format to the backend payload
         const payload = {
-            topic,
-            deepDescription,
-            style,
-            target_format: "youtube_short"
+            topic: currentState.topic,
+            deep_description: currentState.deepDescription,
+            style: currentState.style,
+            target_format: currentState.targetFormat,
+            reference_image_base64: currentState.referenceImageBase64
         };
 
         await fetchStreamWorkflow(payload, (chunk: StreamChunk) => {
@@ -125,6 +133,34 @@ export function StageInputForm() {
                 </div>
             </div>
 
+            {/* Target Format Selector */}
+            <div className="space-y-2">
+                <label className="text-sm font-semibold text-deep-black ml-1">
+                    Target Format <span className="text-red-500">*</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                    {[
+                        { id: "facebook_post", label: "Facebook Post" },
+                        { id: "instagram_post", label: "Instagram Post" },
+                        { id: "youtube_short", label: "YouTube Short" },
+                        { id: "youtube_video", label: "YouTube Video" },
+                        { id: "youtube_post", label: "YouTube Post" },
+                    ].map((format) => (
+                        <button
+                            key={format.id}
+                            type="button"
+                            onClick={() => setTargetFormat(format.id)}
+                            className={`text-sm px-4 py-2 rounded-xl transition-colors border ${targetFormat === format.id
+                                    ? "bg-deep-black text-white border-deep-black hover:bg-deep-black"
+                                    : "bg-white text-deep-black border-soft-gray/30 hover:border-deep-black hover:bg-soft-gray/5"
+                                }`}
+                        >
+                            {format.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Deep Description Field */}
             <div className="space-y-2">
                 <label htmlFor="deepDescription" className="text-sm font-semibold text-deep-black ml-1">
@@ -149,6 +185,55 @@ export function StageInputForm() {
                     selectedStyle={style}
                     onSelectStyle={setStyle}
                 />
+            </div>
+
+            {/* Reference Image Uploader */}
+            <div className="space-y-2">
+                <label className="text-sm font-semibold text-deep-black ml-1">
+                    Reference Image <span className="text-soft-gray font-normal">(Optional)</span>
+                </label>
+                {!referenceImageBase64 ? (
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-soft-gray/30 rounded-xl cursor-pointer bg-white hover:bg-soft-gray/5 transition-colors">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Upload className="w-8 h-8 mb-2 text-soft-gray" />
+                            <p className="mb-2 text-sm text-deep-black"><span className="font-semibold">Click to upload</span> an image to guide the style</p>
+                            <p className="text-xs text-soft-gray">PNG, JPG, WebP supported</p>
+                        </div>
+                        <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                    const result = reader.result as string;
+                                    // Strip the data URL prefix e.g., 'data:image/jpeg;base64,' for backend
+                                    const base64Raw = result.split(",")[1];
+                                    if (base64Raw) setReferenceImageBase64(base64Raw);
+                                };
+                                reader.readAsDataURL(file);
+                            }}
+                        />
+                    </label>
+                ) : (
+                    <div className="relative w-full h-40 rounded-xl overflow-hidden border border-soft-gray/30 bg-white/50 flex items-center justify-center p-2">
+                        {/* We recreate the data url to preview the base64 */}
+                        <img
+                            src={`data:image/jpeg;base64,${referenceImageBase64}`}
+                            alt="Reference Canvas"
+                            className="object-contain h-full w-full rounded-lg"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setReferenceImageBase64(null)}
+                            className="absolute top-3 right-3 p-1.5 bg-red-500/90 text-white rounded-full hover:bg-red-600 transition-colors shadow-xl"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Submit Button */}

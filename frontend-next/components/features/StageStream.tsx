@@ -128,7 +128,7 @@ export function StageStream() {
                             className="w-full flex justify-center pt-8 pb-4"
                         >
                             <button
-                                onClick={() => setStage('script')}
+                                onClick={() => setStage('editor')}
                                 className="px-8 py-3 bg-gradient-primary text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                             >
                                 Refine & Edit

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Stage = 'input' | 'processing' | 'result' | 'script' | 'stream';
+export type Stage = 'input' | 'result' | 'stream' | 'editor' | 'preview';
 
 export interface Scene {
     id: string;
@@ -22,6 +22,9 @@ interface WorkflowState {
     topic: string;
     deepDescription: string;
     style: string;
+    targetFormat: string;
+    finalText: string;
+    referenceImageBase64: string | null;
     scenes: Scene[];
     streamBlocks: StreamBlock[];
     isStreaming: boolean;
@@ -29,6 +32,9 @@ interface WorkflowState {
     setTopic: (topic: string) => void;
     setDeepDescription: (desc: string) => void;
     setStyle: (style: string) => void;
+    setTargetFormat: (format: string) => void;
+    setFinalText: (text: string) => void;
+    setReferenceImageBase64: (base64: string | null) => void;
     setScenes: (scenes: Scene[]) => void;
     updateScene: (id: string, updates: Partial<Scene>) => void;
     appendStreamBlock: (block: StreamBlock) => void;
@@ -42,6 +48,9 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     topic: '',
     deepDescription: '',
     style: '',
+    targetFormat: 'facebook_post',
+    finalText: '',
+    referenceImageBase64: null,
     scenes: [],
     streamBlocks: [],
     isStreaming: false,
@@ -49,6 +58,9 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     setTopic: (topic) => set({ topic }),
     setDeepDescription: (deepDescription) => set({ deepDescription }),
     setStyle: (style) => set({ style }),
+    setTargetFormat: (format) => set({ targetFormat: format }),
+    setFinalText: (text) => set({ finalText: text }),
+    setReferenceImageBase64: (base64) => set({ referenceImageBase64: base64 }),
     setScenes: (scenes) => set({ scenes }),
     updateScene: (id, updates) => set((state) => ({
         scenes: state.scenes.map(scene => scene.id === id ? { ...scene, ...updates } : scene)
