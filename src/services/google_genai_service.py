@@ -106,7 +106,9 @@ class GoogleGenAIService(LLMService):
         target_format: str,
         deep_description: str | None = None,
         style: str | None = None,
-        reference_image_base64: str | None = None,
+        reference_images: list[str] | None = None,
+        image_instructions: str | None = None,
+        include_media_in_post: bool = True,
     ):
         """Generate content by streaming and handling function calls asynchronously."""
         
@@ -125,27 +127,46 @@ class GoogleGenAIService(LLMService):
         )
         dynamic_system_prompt = format_instruction + dynamic_system_prompt
         
+        # Inject image instructions if the user provided reference images
+        if reference_images and image_instructions:
+            img_block = (
+                "\n\nThe user has provided reference images along with these instructions: "
+                f"'{image_instructions}'. Use the reference images as visual context and guidance "
+                "when calling the media generation tools. Incorporate the visual style, composition, "
+                "or subjects from the references into your prompts for generate_image / generate_video.\n"
+            )
+            dynamic_system_prompt += img_block
+        
+        # Inject include_media_in_post flag
+        if not include_media_in_post:
+            dynamic_system_prompt += (
+                "\n\nIMPORTANT: The user has indicated that this post should NOT include "
+                "generated media. Do NOT call generate_image or generate_video tools. "
+                "Focus on producing high-quality text content only.\n"
+            )
+        
         # Configure the tool settings
         # Disabling automatic function calls lets us stream the `tool_start` to the UI
+        tools_config = self.tools if include_media_in_post else []
         config = types.GenerateContentConfig(
             system_instruction=dynamic_system_prompt,
             temperature=0.7,
-            tools=self.tools,
+            tools=tools_config,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                  disable=True # We will handle calls manually
             )
         )
         
         # Setup media service reference image state for tool calls
-        self.media_service.set_reference_image(reference_image_base64)
+        self.media_service.set_reference_images(reference_images)
         
         initial_parts = [f"Please begin generating the content for the topic: '{topic}'."]
-        if reference_image_base64:
+        if reference_images:
             import base64
-            image_bytes = base64.b64decode(reference_image_base64)
-            # Assuming generic image MIME type. Gemini SDK will inspect the bytes directly.
+            # Include the first reference image in the prompt for visual context
+            first_image_bytes = base64.b64decode(reference_images[0])
             initial_parts.append(
-                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+                types.Part.from_bytes(data=first_image_bytes, mime_type="image/jpeg")
             )
             
         logger.info("Starting stream chat session for topic: %s", topic)
@@ -214,3 +235,68 @@ class GoogleGenAIService(LLMService):
             else:
                 # If the model didn't call any tools, it means it's finished writing.
                 break
+
+    async def enhance_text(
+        self,
+        target_format: str,
+        main_field_label: str,
+        main_field_text: str,
+        target_field_label: str,
+        target_field_text: str | None = None,
+        extra_context: str | None = None,
+    ) -> str:
+        """Use the LLM to enhance or generate text for a specific form field.
+
+        Crafts a system prompt that instructs Gemini to act as an expert
+        copywriter for the target social media platform, with explicit
+        handling for gibberish or meaningless existing text.
+        """
+        # Build the existing-text analysis block
+        existing_text_block = ""
+        if target_field_text:
+            existing_text_block = (
+                f"\nThe target field currently contains: \"{target_field_text}\"\n"
+                "CRITICAL RULE: Evaluate the text above carefully. "
+                "If it contains meaningful ideas, expand, polish, and incorporate them. "
+                "If it is random keystrokes or gibberish, COMPLETELY IGNORE IT.\n"
+            )
+
+        extra_block = ""
+        if extra_context:
+            extra_block = f"\nAdditional context: {extra_context}\n"
+
+        system_prompt = (
+            f"You are an expert creative director and prompt engineer helping a user prepare a detailed brief for an AI content generation system. "
+            f"The target format is a {target_format}. "
+            f"Your task is to generate the optimal content for the '{target_field_label}' field of their setup form.\n\n"
+            f"The user's core idea is provided in the '{main_field_label}' field below.\n"
+            f"{existing_text_block}"
+            f"{extra_block}\n"
+            "RULES:\n"
+            f"- If '{target_field_label}' implies a descriptive brief or outline (e.g., 'Detailed Description', 'Video Concept'), write a rich, descriptive paragraph detailing the tone, visual elements, target audience, and mood. DO NOT write the actual social media post.\n"
+            f"- If '{target_field_label}' implies the final public text (e.g., 'Caption & Hashtags', 'Shorts Script / Narration'), draft the actual highly engaging text/script for the {target_format}.\n"
+            "- Be concise, professional, and directly useful for the AI generator pipeline.\n"
+            "- Do NOT include any meta-commentary, explanations, or formatting markers (like 'Here is the description:').\n"
+            "- Return ONLY the final text content, nothing else.\n"
+        )
+
+        user_prompt = f"{main_field_label}: {main_field_text}"
+
+        logger.info(
+            "Enhancing text for format=%r, target_field=%r",
+            target_format, target_field_label,
+        )
+
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.8,
+            ),
+        )
+
+        if not response.text:
+            raise ValueError("No text returned from the enhance_text LLM call.")
+
+        return response.text.strip()

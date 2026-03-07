@@ -1,17 +1,13 @@
 """
-Tests for the GoogleGenAIService making sure Structured Outputs 
-and internal prompt building work as expected, mocking actual API calls.
+Tests for the GoogleGenAIService making sure prompt building
+and API call wiring work as expected, mocking actual API calls.
 """
 
 import os
 from unittest.mock import MagicMock, patch
 import pytest
 
-from src.services.google_genai_service import (
-    GoogleGenAIService,
-    Storyboard,
-    StoryboardScene,
-)
+from src.services.google_genai_service import GoogleGenAIService
 
 
 @pytest.fixture
@@ -58,46 +54,50 @@ async def test_generate_dynamic_system_prompt(service, mock_genai_client):
 
 
 @pytest.mark.asyncio
-async def test_generate_interleaved_storyboard(service, mock_genai_client):
-    """Verifies that structured outputs are requested and parsed natively."""
-    
-    # Setup mock parsed response
-    mock_scene = StoryboardScene(
-        narration="The sun rises.",
-        voiceover_text="Good morning, world.",
-        image_prompt="A beautiful sunrise over the city.",
-        video_prompt="Time-lapse video of the sun rising."
-    )
-    mock_storyboard = Storyboard(
-        youtube_title="Beautiful Sunrise",
-        youtube_description="A time-lapse of the city.",
-        thumbnail_prompt="A glowing sun over skyscrapers.",
-        scenes=[mock_scene]
-    )
-    
+async def test_enhance_text_calls_llm(service, mock_genai_client):
+    """Verifies that enhance_text calls the LLM with the correct prompt structure."""
+
     mock_response = MagicMock()
-    mock_response.parsed = mock_storyboard
+    mock_response.text = "Here is a polished Facebook post about cats."
     mock_genai_client.models.generate_content.return_value = mock_response
 
-    # Execute
-    result = await service.generate_interleaved_storyboard(
-        dynamic_system_prompt="You are a Creative Director.",
-        topic="Morning routine"
+    result = await service.enhance_text(
+        target_format="facebook_post",
+        main_field_label="Topic",
+        main_field_text="Cute cats doing silly things",
+        target_field_label="Post Body",
+        target_field_text=None,
+        extra_context=None,
     )
 
-    # Assertions
-    assert "scenes" in result
-    assert len(result["scenes"]) == 1
-    assert result["scenes"][0]["narration"] == "The sun rises."
-    
-    # Check that genai client was called with Structured Output config
+    assert result == "Here is a polished Facebook post about cats."
     mock_genai_client.models.generate_content.assert_called_once()
+
     call_args = mock_genai_client.models.generate_content.call_args[1]
-    
-    assert call_args["model"] == service.model_name
-    assert "Morning routine" in call_args["contents"]
-    
-    config = call_args["config"]
-    assert config.system_instruction == "You are a Creative Director."
-    assert config.response_mime_type == "application/json"
-    assert config.response_schema == Storyboard
+    system_instruction = call_args["config"].system_instruction
+    assert "facebook_post" in system_instruction
+    assert "Post Body" in system_instruction
+
+
+@pytest.mark.asyncio
+async def test_enhance_text_with_gibberish_field(service, mock_genai_client):
+    """Verifies that the gibberish rule is included when target_field_text is provided."""
+
+    mock_response = MagicMock()
+    mock_response.text = "Generated fresh content."
+    mock_genai_client.models.generate_content.return_value = mock_response
+
+    result = await service.enhance_text(
+        target_format="instagram_post",
+        main_field_label="Topic",
+        main_field_text="Summer fashion trends",
+        target_field_label="Caption",
+        target_field_text="asdfghjkl",
+    )
+
+    assert result == "Generated fresh content."
+    call_args = mock_genai_client.models.generate_content.call_args[1]
+    system_instruction = call_args["config"].system_instruction
+    # Verify the gibberish detection rule is embedded in the prompt
+    assert "COMPLETELY IGNORE IT" in system_instruction
+    assert "asdfghjkl" in system_instruction

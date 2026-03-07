@@ -36,11 +36,9 @@ async def lifespan(app: FastAPI):
 
     llm_service = GoogleGenAIService()
     media_service = GoogleVertexMediaService()
-    youtube_service = YouTubeService()
     manager = ContentWorkflowManager(
         llm_service=llm_service,
         media_service=media_service,
-        youtube_service=youtube_service,
     )
     set_workflow_manager(manager)
 

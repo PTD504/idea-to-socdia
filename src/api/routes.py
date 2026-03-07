@@ -13,7 +13,6 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from src.core.state_machine import InvalidTransitionError
 from src.workflows.workflow_manager import ContentWorkflowManager
 
 logger = logging.getLogger(__name__)
@@ -46,12 +45,24 @@ def _require_manager() -> ContentWorkflowManager:
 
 
 class StartWorkflowRequest(BaseModel):
-    """Body for POST /workflows."""
+    """Body for POST /stream_workflow."""
     topic: str
-    style: str
+    style: str | None = None
     target_format: str
-    deep_description: Optional[str] = None
-    reference_image_base64: Optional[str] = None
+    deep_description: str | None = None
+    reference_images: list[str] | None = None
+    image_instructions: str | None = None
+    include_media_in_post: bool = True
+
+
+class EnhanceTextRequest(BaseModel):
+    """Body for POST /enhance_text."""
+    target_format: str
+    main_field_label: str
+    main_field_text: str
+    target_field_label: str
+    target_field_text: str | None = None
+    extra_context: str | None = None
 
 
 # ------------------------------------------------------------------
@@ -63,31 +74,6 @@ class StartWorkflowRequest(BaseModel):
 async def health_check() -> dict:
     """Liveness probe."""
     return {"status": "ok"}
-
-
-@router.get("/workflows")
-async def list_workflows() -> list[dict]:
-    """Return a list of all workflows currently in memory."""
-    manager = _require_manager()
-    return manager.get_all_workflows()
-
-
-@router.post("/workflows")
-async def create_workflow(body: StartWorkflowRequest) -> dict:
-    """Start a new content-creation workflow.
-
-    The workflow runs through prompt generation and storyboard creation,
-    then pauses at HITL_REVIEW for human approval.
-    """
-    manager = _require_manager()
-    workflow_id = await manager.start_workflow(
-        topic=body.topic,
-        style=body.style,
-        deep_description=body.deep_description,
-    )
-    status = await manager.get_workflow_status(workflow_id)
-    return status
-
 
 @router.post("/stream_workflow")
 async def stream_workflow(body: StartWorkflowRequest):
@@ -105,7 +91,9 @@ async def stream_workflow(body: StartWorkflowRequest):
                 style=body.style,
                 target_format=body.target_format,
                 deep_description=body.deep_description,
-                reference_image_base64=body.reference_image_base64
+                reference_images=body.reference_images,
+                image_instructions=body.image_instructions,
+                include_media_in_post=body.include_media_in_post,
             )
             async for chunk in stream:
                 # NDJSON format: JSON object followed by newline
@@ -125,33 +113,20 @@ async def stream_workflow(body: StartWorkflowRequest):
     )
 
 
-@router.get("/workflows/{workflow_id}")
-async def get_workflow(workflow_id: str) -> dict:
-    """Return the current state and storyboard for a workflow."""
+@router.post("/enhance_text")
+async def enhance_text(body: EnhanceTextRequest):
+    """Enhance or generate text for a specific form field using the LLM."""
     manager = _require_manager()
     try:
-        return await manager.get_workflow_status(workflow_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Workflow not found.")
-
-
-@router.post("/workflows/{workflow_id}/approve")
-async def approve_workflow(workflow_id: str) -> dict:
-    """Trigger the HITL approval for a workflow stuck at review.
-
-    This unblocks the ``advance()`` coroutine so the state machine
-    transitions from ``HITL_REVIEW`` through the remaining pipeline to ``COMPLETED``.
-    """
-    manager = _require_manager()
-    try:
-        await manager.approve_workflow(workflow_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Workflow not found.")
-    except InvalidTransitionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
-
-    status = await manager.get_workflow_status(workflow_id)
-    return {
-        "message": "Review approved.",
-        **status,
-    }
+        result = await manager.enhance_text(
+            target_format=body.target_format,
+            main_field_label=body.main_field_label,
+            main_field_text=body.main_field_text,
+            target_field_label=body.target_field_label,
+            target_field_text=body.target_field_text,
+            extra_context=body.extra_context,
+        )
+        return {"enhanced_text": result}
+    except Exception as e:
+        logger.error("Error during text enhancement: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))

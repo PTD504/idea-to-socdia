@@ -68,25 +68,26 @@ class GoogleVertexMediaService(MediaService):
         # This will automatically pick up GOOGLE_CLOUD_PROJECT from the environment.
         self.client = genai.Client(vertexai=True)
         
-        # State variable to hold the reference image
-        self.reference_image_pil: Image.Image | None = None
+        # State variable to hold reference images for model context
+        self.reference_images_pil: list[Image.Image] = []
         
         # Ensure the static directories exist
         os.makedirs(self.STATIC_IMAGES_DIR, exist_ok=True)
         os.makedirs(self.STATIC_VIDEOS_DIR, exist_ok=True)
 
-    def set_reference_image(self, b64_str: str | None) -> None:
-        """Decodes and stores a base64 image as a PIL image for model context."""
-        if b64_str:
+    def set_reference_images(self, b64_list: list[str] | None) -> None:
+        """Decodes and stores a list of base64 images as PIL images for model context."""
+        self.reference_images_pil = []
+        if not b64_list:
+            return
+        for idx, b64_str in enumerate(b64_list):
             try:
                 decoded_bytes = base64.b64decode(b64_str)
-                self.reference_image_pil = Image.open(io.BytesIO(decoded_bytes))
-                logger.info("Successfully loaded reference image into MediaService state.")
+                img = Image.open(io.BytesIO(decoded_bytes))
+                self.reference_images_pil.append(img)
+                logger.info("Loaded reference image %d into MediaService state.", idx + 1)
             except Exception as e:
-                logger.error("Failed to decode reference image base64: %s", e)
-                self.reference_image_pil = None
-        else:
-            self.reference_image_pil = None
+                logger.error("Failed to decode reference image %d: %s", idx + 1, e)
 
     async def generate_image(self, prompt: str) -> str:
         """Generate an image using the Gemini API and save it locally.
@@ -110,8 +111,8 @@ class GoogleVertexMediaService(MediaService):
             # Offload the synchronous SDK call to a background thread
             def _generate_and_save():
                 contents = [prompt]
-                if self.reference_image_pil:
-                    contents.append(self.reference_image_pil)
+                for ref_img in self.reference_images_pil:
+                    contents.append(ref_img)
                 
                 max_retries = 3
                 for attempt in range(max_retries):
@@ -183,8 +184,9 @@ class GoogleVertexMediaService(MediaService):
                     )
                 }
                 
-                if self.reference_image_pil:
-                    kwargs["image"] = self.reference_image_pil
+                # Veo only supports a single input image
+                if self.reference_images_pil:
+                    kwargs["image"] = self.reference_images_pil[0]
 
                 max_retries = 3
                 for attempt in range(max_retries):
