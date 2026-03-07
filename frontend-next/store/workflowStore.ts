@@ -25,6 +25,9 @@ interface WorkflowState {
     targetFormat: string;
     finalText: string;
     referenceImageBase64: string | null;
+    referenceImages: string[];
+    imageInstructions: string;
+    includeMediaInPost: boolean;
     scenes: Scene[];
     streamBlocks: StreamBlock[];
     isStreaming: boolean;
@@ -35,6 +38,9 @@ interface WorkflowState {
     setTargetFormat: (format: string) => void;
     setFinalText: (text: string) => void;
     setReferenceImageBase64: (base64: string | null) => void;
+    setReferenceImages: (images: string[]) => void;
+    setImageInstructions: (instructions: string) => void;
+    setIncludeMediaInPost: (include: boolean) => void;
     setScenes: (scenes: Scene[]) => void;
     updateScene: (id: string, updates: Partial<Scene>) => void;
     appendStreamBlock: (block: StreamBlock) => void;
@@ -51,6 +57,9 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     targetFormat: 'facebook_post',
     finalText: '',
     referenceImageBase64: null,
+    referenceImages: [],
+    imageInstructions: '',
+    includeMediaInPost: true,
     scenes: [],
     streamBlocks: [],
     isStreaming: false,
@@ -61,6 +70,9 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     setTargetFormat: (format) => set({ targetFormat: format }),
     setFinalText: (text) => set({ finalText: text }),
     setReferenceImageBase64: (base64) => set({ referenceImageBase64: base64 }),
+    setReferenceImages: (images) => set({ referenceImages: images }),
+    setImageInstructions: (instructions) => set({ imageInstructions: instructions }),
+    setIncludeMediaInPost: (include) => set({ includeMediaInPost: include }),
     setScenes: (scenes) => set({ scenes }),
     updateScene: (id, updates) => set((state) => ({
         scenes: state.scenes.map(scene => scene.id === id ? { ...scene, ...updates } : scene)
