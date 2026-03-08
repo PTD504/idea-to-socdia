@@ -15,6 +15,8 @@ export interface StreamBlock {
     type: 'text' | 'tool_start' | 'media_result' | 'error';
     content: string;
     toolName?: string;
+    tool?: string;
+    url?: string;
 }
 
 interface WorkflowState {
@@ -59,7 +61,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     referenceImageBase64: null,
     referenceImages: [],
     imageInstructions: '',
-    includeMediaInPost: true,
+    includeMediaInPost: false,
     scenes: [],
     streamBlocks: [],
     isStreaming: false,

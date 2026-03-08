@@ -13,7 +13,7 @@ export function FacebookPostForm() {
     const [localDescription, setLocalDescription] = useState("");
     const [localImages, setLocalImages] = useState<{ id: string; base64: string }[]>([]);
     const [localInstructions, setLocalInstructions] = useState("");
-    const [localIncludeMedia, setLocalIncludeMedia] = useState(true);
+    const [localIncludeMedia, setLocalIncludeMedia] = useState(false);
     
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,6 +87,12 @@ export function FacebookPostForm() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!localTopic.trim() || isSubmitting) return;
+
+        // Validate: cannot include media in final post without uploading images
+        if (localIncludeMedia && localImages.length === 0) {
+            alert("You must upload at least one image if you want to include media in the final post.");
+            return;
+        }
 
         setIsSubmitting(true);
 

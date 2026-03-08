@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 export function StageStream() {
-    const { streamBlocks, isStreaming, setStage } = useWorkflowStore();
+    const { streamBlocks, isStreaming, setStage, targetFormat } = useWorkflowStore();
     const scrollRef = React.useRef<HTMLDivElement>(null);
 
     // Auto-scroll logic
@@ -45,7 +45,7 @@ export function StageStream() {
 
                 <div
                     ref={scrollRef}
-                    className="w-full flex flex-col gap-6 relative max-h-[70vh] overflow-y-auto px-4 pb-12 scrollbar-none"
+                    className="w-full flow-root relative max-h-[70vh] overflow-y-auto px-4 pb-12 scrollbar-none"
                 >
                     <AnimatePresence initial={false}>
                         {streamBlocks.length === 0 ? (
@@ -61,13 +61,21 @@ export function StageStream() {
                                 <p className="text-soft-gray text-sm">Please wait while we initialize the synthesis pipeline.</p>
                             </motion.div>
                         ) : (
-                            streamBlocks.map((block) => (
+                            streamBlocks.map((block) => {
+                                const isVideo = block.type === 'media_result' && (block.tool === 'generate_video' || block.toolName === 'generate_video' || block.url?.endsWith('.mp4') || block.content?.endsWith('.mp4') || block.url?.endsWith('.webm') || block.content?.endsWith('.webm'));
+
+                                let motionClassName = "w-full mb-6";
+                                if (block.type === 'tool_start') {
+                                    motionClassName = "w-full mb-6 clear-both";
+                                }
+
+                                return (
                                 <motion.div
                                     key={block.id}
                                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     transition={{ duration: 0.4 }}
-                                    className="w-full"
+                                    className={motionClassName}
                                 >
                                     {block.type === 'text' && (
                                         <div className="text-deep-black font-sans text-lg leading-relaxed space-y-4">
@@ -85,7 +93,7 @@ export function StageStream() {
                                                     blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-700 my-4">{children}</blockquote>
                                                 }}
                                             >
-                                                {block.content}
+                                                {block.content.split('<final_deliverable>')[0]}
                                             </ReactMarkdown>
                                         </div>
                                     )}
@@ -102,13 +110,23 @@ export function StageStream() {
                                     )}
 
                                     {block.type === 'media_result' && (
-                                        <div className="relative flex flex-col items-center justify-center aspect-video rounded-2xl overflow-hidden shadow-xl border border-white/30 group">
-                                            <img
-                                                src={block.content}
-                                                alt="Generated Media"
-                                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                        <div className={`relative overflow-hidden shadow-2xl border border-white/40 my-8 mx-auto rounded-2xl group ${targetFormat === 'youtube_short' ? 'max-w-[280px] aspect-[9/16]' : 'w-full max-w-3xl aspect-video'}`}>
+                                            {isVideo ? (
+                                                <video 
+                                                    src={block.url || block.content} 
+                                                    autoPlay 
+                                                    loop 
+                                                    muted 
+                                                    playsInline 
+                                                    className="absolute inset-0 w-full h-full object-cover" 
+                                                />
+                                            ) : (
+                                                <img
+                                                    src={block.url || block.content}
+                                                    alt="Generated Media"
+                                                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                />
+                                            )}
                                         </div>
                                     )}
 
@@ -118,7 +136,9 @@ export function StageStream() {
                                         </div>
                                     )}
                                 </motion.div>
-                            )))}
+                                );
+                            })
+                        )}
                     </AnimatePresence>
 
                     {!isStreaming && streamBlocks.length > 0 && (

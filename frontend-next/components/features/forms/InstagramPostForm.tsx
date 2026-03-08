@@ -14,7 +14,7 @@ export function InstagramPostForm() {
     const [localDescription, setLocalDescription] = useState("");
     const [localImages, setLocalImages] = useState<{ id: string; base64: string }[]>([]);
     const [localInstructions, setLocalInstructions] = useState("");
-    const [localIncludeMedia, setLocalIncludeMedia] = useState(true);
+    const [localIncludeMedia, setLocalIncludeMedia] = useState(false);
     
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +41,7 @@ export function InstagramPostForm() {
                 target_format: "instagram_post",
                 main_field_label: "Visual Concept / Core Idea",
                 main_field_text: localTopic,
-                target_field_label: "Caption & Hashtags",
+                target_field_label: "Caption Context & Key Points",
                 target_field_text: localDescription || undefined
             });
             if (enhancedText) {
@@ -85,6 +85,12 @@ export function InstagramPostForm() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!localTopic.trim() || isSubmitting) return;
+
+        // Validate: cannot include media in final post without uploading images
+        if (localIncludeMedia && localImages.length === 0) {
+            alert("You must upload at least one image if you want to include media in the final post.");
+            return;
+        }
 
         setIsSubmitting(true);
 
