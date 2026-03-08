@@ -12,26 +12,6 @@ class LLMService(ABC):
     """Interface that every LLM backend must satisfy."""
 
     @abstractmethod
-    async def generate_dynamic_system_prompt(
-        self,
-        topic: str,
-        style: str,
-        deep_description: str | None = None,
-        **kwargs,
-    ) -> str:
-        """Build a tailored system prompt for the given topic and style.
-
-        Args:
-            topic: The subject the content will cover.
-            style: Desired visual / tonal style for the content.
-            deep_description: Optional detailed description elements.
-
-        Returns:
-            A fully-formed system prompt string.
-        """
-        ...
-
-    @abstractmethod
     async def stream_creative_content(
         self,
         topic: str,

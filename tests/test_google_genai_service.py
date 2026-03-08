@@ -1,6 +1,6 @@
 """
-Tests for the GoogleGenAIService making sure prompt building
-and API call wiring work as expected, mocking actual API calls.
+Tests for the GoogleGenAIService and centralized prompt builders,
+verifying API call wiring and prompt construction.
 """
 
 import os
@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.services.google_genai_service import GoogleGenAIService
+from src.core.prompts import build_stream_system_prompt, build_enhance_text_prompt
 
 
 @pytest.fixture
@@ -25,32 +26,51 @@ def service(mock_genai_client, monkeypatch):
     return GoogleGenAIService()
 
 
-@pytest.mark.asyncio
-async def test_generate_dynamic_system_prompt(service, mock_genai_client):
-    """Verifies that the meta-prompt asks for a Creative Director system prompt."""
-    
-    # Setup mock response
-    mock_response = MagicMock()
-    mock_response.text = "You are an expert Creative Director. Do X, Y, and Z."
-    mock_genai_client.models.generate_content.return_value = mock_response
-
-    # Execute
-    result = await service.generate_dynamic_system_prompt(
+def test_build_stream_system_prompt_contains_format_and_topic():
+    """Verifies the centralized builder injects Two-Phase rules, format guidelines, and topic."""
+    prompt = build_stream_system_prompt(
         topic="A day in the life of a cat",
-        style="Cinematic documentary"
+        target_format="facebook_post",
+        style="Cinematic documentary",
     )
 
-    # Assertions
-    assert result == "You are an expert Creative Director. Do X, Y, and Z."
-    
-    # Check that genai client was called with correct model and our meta prompt
-    mock_genai_client.models.generate_content.assert_called_once()
-    call_args = mock_genai_client.models.generate_content.call_args[1]
-    
-    assert call_args["model"] == service.model_name
-    assert "A day in the life of a cat" in call_args["contents"]
-    assert "Cinematic documentary" in call_args["contents"]
-    assert "System Prompt for a 'Creative Director' agent" in call_args["contents"]
+    # Must contain the Two-Phase rule
+    assert "TWO STRICT PHASES" in prompt
+    assert "PHASE 1" in prompt
+    assert "PHASE 2" in prompt
+    assert "<final_deliverable>" in prompt
+    assert "<content_body>" in prompt
+    # Must contain format-specific guidelines
+    assert "Facebook Post" in prompt
+    assert "generate_image" in prompt
+    # Must contain content context
+    assert "A day in the life of a cat" in prompt
+    assert "Cinematic documentary" in prompt
+
+
+def test_build_stream_system_prompt_with_ref_images_and_inclusion():
+    """When has_reference_images=True and include_media_in_post=True, asset inclusion block appears."""
+    prompt = build_stream_system_prompt(
+        topic="Test topic",
+        target_format="facebook_post",
+        has_reference_images=True,
+        include_media_in_post=True,
+    )
+    assert "USER ASSET INCLUSION" in prompt
+    # Must NOT disable tools
+    assert "DO NOT call generate_image" not in prompt
+
+
+def test_build_stream_system_prompt_no_ref_images_no_media_block():
+    """Without reference images, no media instruction block should be present."""
+    prompt = build_stream_system_prompt(
+        topic="Test topic",
+        target_format="facebook_post",
+        has_reference_images=False,
+        include_media_in_post=False,
+    )
+    assert "USER ASSET INCLUSION" not in prompt
+    assert "REFERENCE MEDIA INSTRUCTIONS" not in prompt
 
 
 @pytest.mark.asyncio

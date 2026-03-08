@@ -4,23 +4,18 @@ Google GenAI implementation of the LLMService.
 
 import logging
 import os
-from typing import Optional
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field
 
+from src.core.prompts import build_stream_system_prompt, build_enhance_text_prompt
 from src.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
 # Load environment variables (e.g., GEMINI_API_KEY)
 load_dotenv()
-
-
-# Removed structured models as we now stream and rely on tool calls for media.
-
 
 # ------------------------------------------------------------------
 # Service Implementation
@@ -52,54 +47,6 @@ class GoogleGenAIService(LLMService):
         # Tools list for Gemini
         self.tools = self.media_service.get_tools()
 
-    async def generate_dynamic_system_prompt(
-        self,
-        topic: str,
-        style: str,
-        deep_description: str | None = None,
-        **kwargs,
-    ) -> str:
-        """Ask Gemini to act as a Meta-Agent and write a System Prompt.
-
-        This prompt is intended for a 'Creative Director' agent tailoring
-        output to the specific topic and style.
-        """
-        description_instruction = ""
-        if deep_description:
-            description_instruction = (
-                f"A deep_description is provided: '{deep_description}'. "
-                "You MUST prioritize these details (mood, lighting, specific elements) over the general topic.\n"
-            )
-        else:
-            description_instruction = (
-                "No deep_description is provided. You MUST infer the details (mood, lighting, specific elements) "
-                "based on the general topic.\n"
-            )
-
-        meta_prompt = (
-            "You are an expert prompt-engineer and Meta-Agent. Your task is to write a "
-            "comprehensive, highly specific System Prompt for a 'Creative Director' agent. "
-            f"The 'Creative Director' agent will be responsible for creating a storyboard "
-            f"about '{topic}' in the style of '{style}'.\n\n"
-            f"{description_instruction}\n"
-            "The system prompt MUST explicitly instruct the agent: 'You are a visual storyteller. "
-            "Don't just talk about the scene—SHOW IT using the tools. When you visualize a scene, "
-            "DO NOT describe it in text like \"[Image of...]\". Instead, IMMEDIATELY call the `generate_image` or "
-            "`generate_video` tool. Do not wait until the end. Weave the media calls naturally into the flow. "
-            "Keep your narration concise and engaging between visual beats.'\n\n"
-            "Return ONLY the raw system prompt text. Do not include introductory remarks."
-        )
-
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=meta_prompt,
-        )
-
-        if not response.text:
-            raise ValueError("No text returned for dynamic system prompt.")
-
-        return response.text.strip()
-
     async def stream_creative_content(
         self,
         topic: str,
@@ -112,46 +59,27 @@ class GoogleGenAIService(LLMService):
     ):
         """Generate content by streaming and handling function calls asynchronously."""
         
-        dynamic_system_prompt = await self.generate_dynamic_system_prompt(
+        # Determine if the user uploaded reference images
+        has_ref_images = bool(reference_images and len(reference_images) > 0)
+
+        # Build the system prompt from centralized templates
+        system_prompt = build_stream_system_prompt(
             topic=topic,
+            target_format=target_format,
             deep_description=deep_description,
-            style=style or "cinematic",
+            style=style,
+            image_instructions=image_instructions,
+            include_media_in_post=include_media_in_post,
+            has_reference_images=has_ref_images,
         )
-        
-        # Inject platform format logic
-        format_instruction = (
-            f"You are generating content specifically formatted for {target_format}. "
-            "Adjust your tone, structure, and pacing accordingly. "
-            "If the format is a video platform (like YouTube Shorts), prioritize calling the `generate_video` tool. "
-            "If it is a static platform (like a Facebook post), prioritize the `generate_image` tool.\n\n"
-        )
-        dynamic_system_prompt = format_instruction + dynamic_system_prompt
-        
-        # Inject image instructions if the user provided reference images
-        if reference_images and image_instructions:
-            img_block = (
-                "\n\nThe user has provided reference images along with these instructions: "
-                f"'{image_instructions}'. Use the reference images as visual context and guidance "
-                "when calling the media generation tools. Incorporate the visual style, composition, "
-                "or subjects from the references into your prompts for generate_image / generate_video.\n"
-            )
-            dynamic_system_prompt += img_block
-        
-        # Inject include_media_in_post flag
-        if not include_media_in_post:
-            dynamic_system_prompt += (
-                "\n\nIMPORTANT: The user has indicated that this post should NOT include "
-                "generated media. Do NOT call generate_image or generate_video tools. "
-                "Focus on producing high-quality text content only.\n"
-            )
         
         # Configure the tool settings
-        # Disabling automatic function calls lets us stream the `tool_start` to the UI
-        tools_config = self.tools if include_media_in_post else []
+        # Tools are ALWAYS available: generate_image / generate_video must never be disabled.
+        # Disabling automatic function calls lets us stream the `tool_start` to the UI.
         config = types.GenerateContentConfig(
-            system_instruction=dynamic_system_prompt,
+            system_instruction=system_prompt,
             temperature=0.7,
-            tools=tools_config,
+            tools=self.tools,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                  disable=True # We will handle calls manually
             )
@@ -245,39 +173,15 @@ class GoogleGenAIService(LLMService):
         target_field_text: str | None = None,
         extra_context: str | None = None,
     ) -> str:
-        """Use the LLM to enhance or generate text for a specific form field.
+        """Use the LLM to enhance or generate text for a specific form field."""
 
-        Crafts a system prompt that instructs Gemini to act as an expert
-        copywriter for the target social media platform, with explicit
-        handling for gibberish or meaningless existing text.
-        """
-        # Build the existing-text analysis block
-        existing_text_block = ""
-        if target_field_text:
-            existing_text_block = (
-                f"\nThe target field currently contains: \"{target_field_text}\"\n"
-                "CRITICAL RULE: Evaluate the text above carefully. "
-                "If it contains meaningful ideas, expand, polish, and incorporate them. "
-                "If it is random keystrokes or gibberish, COMPLETELY IGNORE IT.\n"
-            )
-
-        extra_block = ""
-        if extra_context:
-            extra_block = f"\nAdditional context: {extra_context}\n"
-
-        system_prompt = (
-            f"You are an expert creative director and prompt engineer helping a user prepare a detailed brief for an AI content generation system. "
-            f"The target format is a {target_format}. "
-            f"Your task is to generate the optimal content for the '{target_field_label}' field of their setup form.\n\n"
-            f"The user's core idea is provided in the '{main_field_label}' field below.\n"
-            f"{existing_text_block}"
-            f"{extra_block}\n"
-            "RULES:\n"
-            f"- If '{target_field_label}' implies a descriptive brief or outline (e.g., 'Detailed Description', 'Video Concept'), write a rich, descriptive paragraph detailing the tone, visual elements, target audience, and mood. DO NOT write the actual social media post.\n"
-            f"- If '{target_field_label}' implies the final public text (e.g., 'Caption & Hashtags', 'Shorts Script / Narration'), draft the actual highly engaging text/script for the {target_format}.\n"
-            "- Be concise, professional, and directly useful for the AI generator pipeline.\n"
-            "- Do NOT include any meta-commentary, explanations, or formatting markers (like 'Here is the description:').\n"
-            "- Return ONLY the final text content, nothing else.\n"
+        # Build the system prompt from centralized templates
+        system_prompt = build_enhance_text_prompt(
+            target_format=target_format,
+            main_field_label=main_field_label,
+            target_field_label=target_field_label,
+            target_field_text=target_field_text,
+            extra_context=extra_context,
         )
 
         user_prompt = f"{main_field_label}: {main_field_text}"

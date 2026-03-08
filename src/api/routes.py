@@ -52,7 +52,7 @@ class StartWorkflowRequest(BaseModel):
     deep_description: str | None = None
     reference_images: list[str] | None = None
     image_instructions: str | None = None
-    include_media_in_post: bool = True
+    include_media_in_post: bool = False
 
 
 class EnhanceTextRequest(BaseModel):
@@ -85,6 +85,11 @@ async def stream_workflow(body: StartWorkflowRequest):
     manager = _require_manager()
     
     async def event_generator():
+        # Validate: cannot include media in post without reference images
+        if body.include_media_in_post and not body.reference_images:
+            yield json.dumps({"type": "error", "error": "Cannot include media in post if no reference images are provided."}) + "\n"
+            return
+
         try:
             stream = manager.stream_workflow(
                 topic=body.topic,
