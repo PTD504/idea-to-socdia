@@ -65,6 +65,13 @@ class EnhanceTextRequest(BaseModel):
     extra_context: str | None = None
 
 
+class RegenerateMediaRequest(BaseModel):
+    """Body for POST /regenerate_media."""
+    media_type: str
+    prompt: str
+    aspect_ratio: str | None = None
+
+
 # ------------------------------------------------------------------
 # Endpoints
 # ------------------------------------------------------------------
@@ -134,4 +141,26 @@ async def enhance_text(body: EnhanceTextRequest):
         return {"enhanced_text": result}
     except Exception as e:
         logger.error("Error during text enhancement: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/regenerate_media")
+async def regenerate_media(body: RegenerateMediaRequest):
+    """Regenerate a specific media asset (image or video)."""
+    manager = _require_manager()
+    
+    try:
+        if body.media_type == "image":
+            new_url = await manager._media_service.generate_image(body.prompt)
+        elif body.media_type == "video":
+            new_url = await manager._media_service.generate_video(
+                body.prompt, 
+                aspect_ratio=body.aspect_ratio or "16:9"
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Invalid media_type. Must be 'image' or 'video'.")
+            
+        return {"url": new_url}
+    except Exception as e:
+        logger.error("Error during media regeneration: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

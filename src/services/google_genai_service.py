@@ -55,7 +55,7 @@ class GoogleGenAIService(LLMService):
         style: str | None = None,
         reference_images: list[str] | None = None,
         image_instructions: str | None = None,
-        include_media_in_post: bool = True,
+        include_media_in_post: bool = False,
     ):
         """Generate content by streaming and handling function calls asynchronously."""
         
@@ -69,7 +69,6 @@ class GoogleGenAIService(LLMService):
             deep_description=deep_description,
             style=style,
             image_instructions=image_instructions,
-            include_media_in_post=include_media_in_post,
             has_reference_images=has_ref_images,
         )
         
@@ -134,9 +133,11 @@ class GoogleGenAIService(LLMService):
                         try:
                             # Execute the physical tool function natively in python
                             if name == "generate_image":
-                                result_url = await self.media_service.generate_image(prompt=args.get("prompt", ""))
+                                aspect_ratio = "9:16" if target_format == "youtube_short" else "16:9"
+                                result_url = await self.media_service.generate_image(prompt=args.get("prompt", ""), aspect_ratio=aspect_ratio)
                             elif name == "generate_video":
-                                result_url = await self.media_service.generate_video(prompt=args.get("prompt", ""))
+                                video_ratio = "9:16" if target_format in ["youtube_short", "instagram_post"] else "16:9"
+                                result_url = await self.media_service.generate_video(prompt=args.get("prompt", ""), aspect_ratio=video_ratio)
                             else:
                                 logger.error("Model tried to call unknown tool: %s", name)
                                 result_url = "https://placehold.co/1920x1080?text=Unknown+Tool"

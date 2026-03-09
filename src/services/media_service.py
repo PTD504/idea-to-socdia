@@ -89,7 +89,7 @@ class GoogleVertexMediaService(MediaService):
             except Exception as e:
                 logger.error("Failed to decode reference image %d: %s", idx + 1, e)
 
-    async def generate_image(self, prompt: str) -> str:
+    async def generate_image(self, prompt: str, aspect_ratio: str = "16:9") -> str:
         """Generate an image using the Gemini API and save it locally.
         
         Args:
@@ -101,8 +101,10 @@ class GoogleVertexMediaService(MediaService):
         logger.info("Generating real image for prompt: %s", prompt[:80])
         asset_id = uuid.uuid4().hex[:12]
 
+        dimensions = "1080x1920" if aspect_ratio == "9:16" else "1920x1080"
+
         if use_mock_image:
-            return f"https://placehold.co/1920x1080/000000/FFF?text=Mock+Image"
+            return f"https://placehold.co/{dimensions}/000000/FFF?text=Mock+Image"
 
         filename = f"img_{asset_id}.png"
         filepath = os.path.join(self.STATIC_IMAGES_DIR, filename)
@@ -122,7 +124,7 @@ class GoogleVertexMediaService(MediaService):
                             contents=contents,
                             config=types.GenerateContentConfig(
                                 response_modalities=['IMAGE'],
-                                image_config=types.ImageConfig(aspect_ratio="16:9", image_size="2K"),
+                                image_config=types.ImageConfig(aspect_ratio=aspect_ratio, image_size="2K"),
                             )
                         )
                         break
@@ -155,7 +157,7 @@ class GoogleVertexMediaService(MediaService):
             logger.error("Failed to generate image. Fallback to placeholder. Error: %s", str(e))
             return "https://placehold.co/1920x1080?text=Image+Generation+Failed"
             
-    async def generate_video(self, prompt: str) -> str:
+    async def generate_video(self, prompt: str, aspect_ratio: str = "16:9") -> str:
         """Generate a video using the Vertex AI Veo API and save it locally.
 
         Args:
@@ -167,8 +169,10 @@ class GoogleVertexMediaService(MediaService):
         logger.info("Generating video for prompt: %s", prompt[:80])
         asset_id = uuid.uuid4().hex[:12]
 
+        dimensions = "1080x1920" if aspect_ratio == "9:16" else "1920x1080"
+
         if use_mock_video:
-            return f"https://placehold.co/1920x1080/000000/FFF?text=Mock+Video"
+            return f"https://placehold.co/{dimensions}/000000/FFF?text=Mock+Video"
 
         filename = f"vid_{asset_id}.mp4"
         filepath = os.path.join(self.STATIC_VIDEOS_DIR, filename)
@@ -180,7 +184,7 @@ class GoogleVertexMediaService(MediaService):
                     "model": "veo-3.0-fast-generate-001",
                     "prompt": prompt,
                     "config": types.GenerateVideosConfig(
-                        aspect_ratio="16:9",
+                        aspect_ratio=aspect_ratio,
                     )
                 }
                 
@@ -228,7 +232,7 @@ class GoogleVertexMediaService(MediaService):
 
         except Exception as e:
             logger.error("Failed to generate video. Error: %s", str(e))
-            return "https://placehold.co/1920x1080?text=Video+Generation+Failed"
+            return f"https://placehold.co/{dimensions}?text=Video+Generation+Failed"
              
     def get_tools(self) -> list:
         """Returns the list of functions intended to be passed to the Gemini 'tools' parameter.
