@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useWorkflowStore } from "../../../store/workflowStore";
 import { fetchStreamWorkflow, StreamChunk } from "../../../lib/streamClient";
 import { enhanceText } from "../../../lib/api";
-import { Sparkles, UploadCloud, X, Loader2, Workflow } from "lucide-react";
+import { Sparkles, UploadCloud, X, Loader2 } from "lucide-react";
 
 export function YouTubeVideoForm() {
     // Local state
@@ -14,8 +15,6 @@ export function YouTubeVideoForm() {
     const [localDescription, setLocalDescription] = useState("");
     const [localImages, setLocalImages] = useState<{ id: string; base64: string }[]>([]);
     const [localInstructions, setLocalInstructions] = useState("");
-    const [localIncludeMedia, setLocalIncludeMedia] = useState(false);
-    
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -28,7 +27,6 @@ export function YouTubeVideoForm() {
     const setReferenceImages = useWorkflowStore((state) => state.setReferenceImages);
     const setReferenceImageBase64 = useWorkflowStore((state) => state.setReferenceImageBase64);
     const setImageInstructions = useWorkflowStore((state) => state.setImageInstructions);
-    const setIncludeMediaInPost = useWorkflowStore((state) => state.setIncludeMediaInPost);
     const setStage = useWorkflowStore((state) => state.setStage);
     const appendStreamBlock = useWorkflowStore((state) => state.appendStreamBlock);
     const appendContentToLastTextBlock = useWorkflowStore((state) => state.appendContentToLastTextBlock);
@@ -86,12 +84,6 @@ export function YouTubeVideoForm() {
         e.preventDefault();
         if (!localTopic.trim() || isSubmitting) return;
 
-        // Validate: cannot include media in final post without uploading images
-        if (localIncludeMedia && localImages.length === 0) {
-            alert("You must upload at least one image if you want to include media in the final post.");
-            return;
-        }
-
         setIsSubmitting(true);
 
         setTopic(localTopic);
@@ -110,7 +102,6 @@ export function YouTubeVideoForm() {
         }
         
         setImageInstructions(localInstructions);
-        setIncludeMediaInPost(localIncludeMedia);
         
         setStage("stream");
 
@@ -121,7 +112,7 @@ export function YouTubeVideoForm() {
             target_format: "youtube_video",
             reference_images: base64Images.length > 0 ? base64Images : null,
             image_instructions: localInstructions || null,
-            include_media_in_post: localIncludeMedia
+            include_media_in_post: false
         };
 
         await fetchStreamWorkflow(payload, (chunk: StreamChunk) => {
@@ -265,10 +256,12 @@ export function YouTubeVideoForm() {
                                 animate={{ scale: 1, opacity: 1 }}
                                 className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 shadow-sm"
                             >
-                                <img
+                                <Image
                                     src={`data:image/jpeg;base64,${img.base64}`}
                                     alt="Reference Thumbnail"
-                                    className="object-cover w-full h-full"
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
                                 />
                                 <button
                                     type="button"
@@ -289,19 +282,6 @@ export function YouTubeVideoForm() {
                     placeholder="Instructions for AI regarding these assets (e.g., 'Animate like a documentary')"
                     className="w-full mt-2 px-4 py-2.5 text-sm rounded-lg border border-slate-200 bg-white/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF0000]/50 transition-all"
                 />
-
-                <label className="flex items-center gap-2 mt-1 cursor-pointer group w-max">
-                    <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${localIncludeMedia ? 'bg-[#FF0000] border-[#FF0000]' : 'bg-white border-slate-300 group-hover:border-[#FF0000]/60'}`}>
-                        {localIncludeMedia && <Workflow className="w-3 h-3 text-white" />}
-                    </div>
-                    <span className="text-sm font-medium text-slate-700 select-none">Include these media files in the final video</span>
-                    <input
-                        type="checkbox"
-                        checked={localIncludeMedia}
-                        onChange={(e) => setLocalIncludeMedia(e.target.checked)}
-                        className="hidden"
-                    />
-                </label>
             </div>
 
             {/* Footer / Submit */}

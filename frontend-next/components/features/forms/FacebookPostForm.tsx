@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useWorkflowStore } from "../../../store/workflowStore";
 import { fetchStreamWorkflow, StreamChunk } from "../../../lib/streamClient";
@@ -248,10 +249,12 @@ export function FacebookPostForm() {
                                 animate={{ scale: 1, opacity: 1 }}
                                 className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 shadow-sm"
                             >
-                                <img
+                                <Image
                                     src={`data:image/jpeg;base64,${img.base64}`}
                                     alt="Reference Thumbnail"
-                                    className="object-cover w-full h-full"
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
                                 />
                                 <button
                                     type="button"

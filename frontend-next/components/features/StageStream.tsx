@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 export function StageStream() {
-    const { streamBlocks, isStreaming, setStage, targetFormat } = useWorkflowStore();
+    const { streamBlocks, isStreaming, setStage, targetFormat, parseAndSetEditorData, referenceImages, includeMediaInPost } = useWorkflowStore();
     const scrollRef = React.useRef<HTMLDivElement>(null);
 
     // Auto-scroll logic
@@ -19,6 +20,16 @@ export function StageStream() {
             });
         }
     }, [streamBlocks]);
+
+    // Prevent accidental refresh
+    React.useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, []);
 
     return (
         <div className="min-h-screen w-full bg-creative-paper p-8 flex flex-col items-center">
@@ -114,6 +125,7 @@ export function StageStream() {
                                             {isVideo ? (
                                                 <video 
                                                     src={block.url || block.content} 
+                                                    poster={block.url || block.content}
                                                     autoPlay 
                                                     loop 
                                                     muted 
@@ -121,10 +133,12 @@ export function StageStream() {
                                                     className="absolute inset-0 w-full h-full object-cover" 
                                                 />
                                             ) : (
-                                                <img
+                                                <Image
                                                     src={block.url || block.content}
                                                     alt="Generated Media"
-                                                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                    fill
+                                                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                                    unoptimized
                                                 />
                                             )}
                                         </div>
@@ -148,7 +162,11 @@ export function StageStream() {
                             className="w-full flex justify-center pt-8 pb-4"
                         >
                             <button
-                                onClick={() => setStage('editor')}
+                                onClick={() => {
+                                    const fullText = streamBlocks.filter(b => b.type === 'text').map(b => b.content).join('\n');
+                                    parseAndSetEditorData(fullText, targetFormat, referenceImages, includeMediaInPost);
+                                    setStage('editor');
+                                }}
                                 className="px-8 py-3 bg-gradient-primary text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                             >
                                 Refine & Edit

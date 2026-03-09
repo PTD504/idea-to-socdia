@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useWorkflowStore } from "../../../store/workflowStore";
 import { fetchStreamWorkflow, StreamChunk } from "../../../lib/streamClient";
@@ -116,7 +117,7 @@ export function InstagramPostForm() {
         // Construct backend payload
         const payload = {
             topic: localTopic,
-            deep_description: `Aesthetic / Vibe: ${localAesthetic}\nCaption & Hashtags details: ${localDescription}`,
+            deep_description: `Aesthetic / Vibe: ${localAesthetic}\nCaption Context & Key Points details: ${localDescription}`,
             style: localAesthetic,
             target_format: "instagram_post",
             reference_images: base64Images.length > 0 ? base64Images : null,
@@ -207,11 +208,11 @@ export function InstagramPostForm() {
                 </div>
             </div>
 
-            {/* Field 3: Caption & Hashtags */}
+            {/* Field 3: Caption Context & Key Points */}
             <div className="flex flex-col gap-2 relative">
                 <div className="flex items-center justify-between ml-1">
                     <label htmlFor="description" className="text-sm font-semibold text-slate-700">
-                        Caption & Hashtags <span className="text-slate-400 font-normal">(Optional)</span>
+                        Caption Context & Key Points <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <button
                         type="button"
@@ -265,10 +266,12 @@ export function InstagramPostForm() {
                                 animate={{ scale: 1, opacity: 1 }}
                                 className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 shadow-sm"
                             >
-                                <img
+                                <Image
                                     src={`data:image/jpeg;base64,${img.base64}`}
                                     alt="Reference Thumbnail"
-                                    className="object-cover w-full h-full"
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
                                 />
                                 <button
                                     type="button"

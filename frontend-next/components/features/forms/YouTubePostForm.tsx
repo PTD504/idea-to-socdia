@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useWorkflowStore } from "../../../store/workflowStore";
 import { fetchStreamWorkflow, StreamChunk } from "../../../lib/streamClient";
+import { enhanceText } from "../../../lib/api";
 import { Sparkles, UploadCloud, X, Loader2, Workflow } from "lucide-react";
 
 export function YouTubePostForm() {
@@ -15,6 +17,7 @@ export function YouTubePostForm() {
     const [localInstructions, setLocalInstructions] = useState("");
     const [localIncludeMedia, setLocalIncludeMedia] = useState(false);
     
+    const [isEnhancingCTA, setIsEnhancingCTA] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +33,27 @@ export function YouTubePostForm() {
     const setStage = useWorkflowStore((state) => state.setStage);
     const appendStreamBlock = useWorkflowStore((state) => state.appendStreamBlock);
     const appendContentToLastTextBlock = useWorkflowStore((state) => state.appendContentToLastTextBlock);
+
+    const handleEnhanceCTA = async () => {
+        if (!localTopic.trim()) return;
+        setIsEnhancingCTA(true);
+        try {
+            const enhancedText = await enhanceText({
+                target_format: "youtube_post",
+                main_field_label: "Announcement / Message",
+                main_field_text: localTopic,
+                target_field_label: "Call to Action (CTA)",
+                target_field_text: localDescription || undefined
+            });
+            if (enhancedText) {
+                setLocalDescription(enhancedText);
+            }
+        } catch (error) {
+            console.error("Failed to enhance text:", error);
+        } finally {
+            setIsEnhancingCTA(false);
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -167,10 +191,21 @@ export function YouTubePostForm() {
             </div>
 
             {/* Field 2: Call to Action (CTA) */}
-            <div className="flex flex-col gap-2">
-                <label htmlFor="description" className="text-sm font-semibold text-slate-700 ml-1">
-                    Call to Action (CTA) <span className="text-slate-400 font-normal">(Optional)</span>
-                </label>
+            <div className="flex flex-col gap-2 relative">
+                <div className="flex items-center justify-between ml-1">
+                    <label htmlFor="description" className="text-sm font-semibold text-slate-700">
+                        Call to Action (CTA) <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <button
+                        type="button"
+                        onClick={handleEnhanceCTA}
+                        disabled={isEnhancingCTA || !localTopic.trim()}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-[#FF0000] bg-[#FF0000]/10 py-1 px-3 rounded-full hover:bg-[#FF0000]/20 transition-colors disabled:opacity-50"
+                    >
+                        {isEnhancingCTA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        Enhance with AI
+                    </button>
+                </div>
                 <input
                     id="description"
                     type="text"
@@ -232,10 +267,12 @@ export function YouTubePostForm() {
                                 animate={{ scale: 1, opacity: 1 }}
                                 className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 shadow-sm"
                             >
-                                <img
+                                <Image
                                     src={`data:image/jpeg;base64,${img.base64}`}
                                     alt="Reference Thumbnail"
-                                    className="object-cover w-full h-full"
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
                                 />
                                 <button
                                     type="button"
