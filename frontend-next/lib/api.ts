@@ -25,3 +25,26 @@ export async function enhanceText(payload: EnhanceTextPayload): Promise<string> 
     const data = await response.json();
     return data.enhanced_text || "";
 }
+
+export async function regenerateMediaAPI(mediaType: string, prompt: string, aspectRatio?: string): Promise<string> {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+    const response = await fetch(`${apiUrl}/regenerate_media`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            media_type: mediaType,
+            prompt: prompt,
+            aspect_ratio: aspectRatio || null
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.url || "";
+}
