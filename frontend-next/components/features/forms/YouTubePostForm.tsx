@@ -6,7 +6,9 @@ import { motion } from "framer-motion";
 import { useWorkflowStore } from "../../../store/workflowStore";
 import { fetchStreamWorkflow, StreamChunk } from "../../../lib/streamClient";
 import { enhanceText } from "../../../lib/api";
-import { Sparkles, UploadCloud, X, Loader2, Workflow } from "lucide-react";
+import { POPULAR_STYLES, ALL_STYLES } from "../../../lib/constants/styles";
+import { usePreventUnload } from "../../../hooks/usePreventUnload";
+import { Sparkles, UploadCloud, X, Loader2, Workflow, ChevronDown } from "lucide-react";
 
 export function YouTubePostForm() {
     // Local state
@@ -21,6 +23,9 @@ export function YouTubePostForm() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Prevent accidental unload
+    usePreventUnload(true);
 
     // Global store actions
     const setTopic = useWorkflowStore((state) => state.setTopic);
@@ -170,7 +175,7 @@ export function YouTubePostForm() {
         setIsSubmitting(false);
     };
 
-    const aestheticOptions = ["Casual", "Exciting", "Mysterious", "Informative", "Behind-the-Scenes"];
+
 
     return (
         <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto bg-white/60 backdrop-blur-xl border border-white/40 shadow-xl rounded-2xl p-8 flex flex-col gap-6">
@@ -216,22 +221,42 @@ export function YouTubePostForm() {
                 />
             </div>
 
-            {/* Field 3: Tone */}
+            {/* Field 3: Visual Style */}
             <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold text-slate-700 ml-1">
-                    Tone <span className="text-slate-400 font-normal">(Optional)</span>
+                    Visual Style <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
-                <div className="flex flex-wrap gap-2">
-                    {aestheticOptions.map((vibe) => (
+                <div className="flex flex-wrap items-center gap-2">
+                    {POPULAR_STYLES.map((vibe) => (
                         <button
                             key={vibe}
                             type="button"
                             onClick={() => setLocalAesthetic(vibe === localAesthetic ? "" : vibe)}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${localAesthetic === vibe ? 'bg-[#FF0000] text-white shadow-md shadow-[#FF0000]/20 border-[#FF0000]' : 'bg-white/50 text-slate-600 border border-slate-200 hover:bg-white hover:border-[#FF0000]/40'}`}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${localAesthetic === vibe ? 'bg-[#FF0000] text-white shadow-md shadow-[#FF0000]/20 border-[#FF0000]' : 'bg-white/50 text-slate-600 border-slate-200 hover:bg-white hover:border-[#FF0000]/40'}`}
                         >
                             {vibe}
                         </button>
                     ))}
+                    <div className="relative">
+                        <select
+                            value={POPULAR_STYLES.includes(localAesthetic) ? "" : localAesthetic}
+                            onChange={(e) => setLocalAesthetic(e.target.value)}
+                            style={{ "--theme-color": "#FF0000" } as React.CSSProperties}
+                            className={`bg-white/80 backdrop-blur-md border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-[var(--theme-color)] focus:border-[var(--theme-color)] block w-full p-2.5 pr-10 appearance-none cursor-pointer shadow-sm transition-all focus:outline-none ${localAesthetic && !POPULAR_STYLES.includes(localAesthetic) ? 'ring-2 ring-[#FF0000]/50 border-[#FF0000]' : ''}`}
+                        >
+                            <option value="" disabled hidden>More Styles...</option>
+                            {ALL_STYLES.map((s) => (
+                                !POPULAR_STYLES.includes(s) && (
+                                    <option key={s} value={s} className="text-slate-800 bg-white">
+                                        {s}
+                                    </option>
+                                )
+                            ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
+                            <ChevronDown size={16} />
+                        </div>
+                    </div>
                 </div>
             </div>
 

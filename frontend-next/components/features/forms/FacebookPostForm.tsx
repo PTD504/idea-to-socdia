@@ -6,7 +6,9 @@ import { motion } from "framer-motion";
 import { useWorkflowStore } from "../../../store/workflowStore";
 import { fetchStreamWorkflow, StreamChunk } from "../../../lib/streamClient";
 import { enhanceText } from "../../../lib/api";
-import { Sparkles, UploadCloud, X, Loader2, Workflow } from "lucide-react";
+import { POPULAR_STYLES, ALL_STYLES } from "../../../lib/constants/styles";
+import { usePreventUnload } from "../../../hooks/usePreventUnload";
+import { Sparkles, UploadCloud, X, Loader2, Workflow, ChevronDown } from "lucide-react";
 
 export function FacebookPostForm() {
     // Local state
@@ -15,14 +17,19 @@ export function FacebookPostForm() {
     const [localImages, setLocalImages] = useState<{ id: string; base64: string }[]>([]);
     const [localInstructions, setLocalInstructions] = useState("");
     const [localIncludeMedia, setLocalIncludeMedia] = useState(false);
+    const [localStyle, setLocalStyle] = useState("");
     
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Prevent accidental unload
+    usePreventUnload(true);
+
     // Global store actions
     const setTopic = useWorkflowStore((state) => state.setTopic);
+    const setStyle = useWorkflowStore((state) => state.setStyle);
     const setDeepDescription = useWorkflowStore((state) => state.setDeepDescription);
     const setReferenceImages = useWorkflowStore((state) => state.setReferenceImages);
     const setReferenceImageBase64 = useWorkflowStore((state) => state.setReferenceImageBase64);
@@ -32,8 +39,7 @@ export function FacebookPostForm() {
     const appendStreamBlock = useWorkflowStore((state) => state.appendStreamBlock);
     const appendContentToLastTextBlock = useWorkflowStore((state) => state.appendContentToLastTextBlock);
     
-    // Default style to use
-    const style = useWorkflowStore((state) => state.style);
+
 
     const handleEnhanceClick = async () => {
         if (!localTopic.trim()) return;
@@ -99,6 +105,7 @@ export function FacebookPostForm() {
 
         // Map local state to global store
         setTopic(localTopic);
+        setStyle(localStyle);
         setDeepDescription(localDescription);
         
         const base64Images = localImages.map(img => img.base64);
@@ -120,7 +127,7 @@ export function FacebookPostForm() {
         const payload = {
             topic: localTopic,
             deep_description: localDescription,
-            style: style, // Assuming localAesthetic was a typo and meant to use the 'style' from global store
+            style: localStyle,
             target_format: "facebook_post",
             reference_images: base64Images.length > 0 ? base64Images : null,
             image_instructions: localInstructions || null,
@@ -213,6 +220,45 @@ export function FacebookPostForm() {
                     rows={4}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0866FF]/50 transition-all resize-none"
                 />
+            </div>
+
+            {/* Field 2.5: Visual Style */}
+            <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-slate-700 ml-1">
+                    Visual Style <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                    {POPULAR_STYLES.map((vibe) => (
+                        <button
+                            key={vibe}
+                            type="button"
+                            onClick={() => setLocalStyle(vibe === localStyle ? "" : vibe)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${localStyle === vibe ? 'bg-[#0866FF] text-white shadow-md shadow-[#0866FF]/20 border-[#0866FF]' : 'bg-white/50 text-slate-600 border-slate-200 hover:bg-white hover:border-[#0866FF]/40'}`}
+                        >
+                            {vibe}
+                        </button>
+                    ))}
+                    <div className="relative">
+                        <select
+                            value={POPULAR_STYLES.includes(localStyle) ? "" : localStyle}
+                            onChange={(e) => setLocalStyle(e.target.value)}
+                            style={{ "--theme-color": "#0866FF" } as React.CSSProperties}
+                            className={`bg-white/80 backdrop-blur-md border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-[var(--theme-color)] focus:border-[var(--theme-color)] block w-full p-2.5 pr-10 appearance-none cursor-pointer shadow-sm transition-all focus:outline-none ${localStyle && !POPULAR_STYLES.includes(localStyle) ? 'ring-2 ring-[#0866FF]/50 border-[#0866FF]' : ''}`}
+                        >
+                            <option value="" disabled hidden>More Styles...</option>
+                            {ALL_STYLES.map((s) => (
+                                !POPULAR_STYLES.includes(s) && (
+                                    <option key={s} value={s} className="text-slate-800 bg-white">
+                                        {s}
+                                    </option>
+                                )
+                            ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
+                            <ChevronDown size={16} />
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Field 3: Reference Images */}

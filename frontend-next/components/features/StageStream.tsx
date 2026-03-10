@@ -6,9 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { usePreventUnload } from "@/hooks/usePreventUnload";
 
 export function StageStream() {
-    const { streamBlocks, isStreaming, setStage, targetFormat, parseAndSetEditorData, referenceImages, includeMediaInPost } = useWorkflowStore();
+    const { streamBlocks, isStreaming, setStage, targetFormat, parseAndSetEditorData, referenceImages, includeMediaInPost, resetWorkflow } = useWorkflowStore();
     const scrollRef = React.useRef<HTMLDivElement>(null);
 
     // Auto-scroll logic
@@ -22,17 +23,21 @@ export function StageStream() {
     }, [streamBlocks]);
 
     // Prevent accidental refresh
-    React.useEffect(() => {
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            e.preventDefault();
-            e.returnValue = '';
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, []);
+    usePreventUnload(true);
 
     return (
-        <div className="min-h-screen w-full bg-creative-paper p-8 flex flex-col items-center">
+        <div className="min-h-screen w-full bg-creative-paper p-8 flex flex-col items-center relative">
+            <button
+                onClick={() => {
+                    const confirmDiscard = window.confirm("Are you sure you want to discard your current content and start a new one?");
+                    if (confirmDiscard) {
+                        resetWorkflow();
+                    }
+                }}
+                className="absolute top-6 right-6 md:top-8 md:right-8 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-full px-4 py-2 text-sm font-medium transition-colors z-50 shadow-sm bg-white/50 backdrop-blur-sm"
+            >
+                New Content
+            </button>
             <style>{`
                 .scrollbar-none::-webkit-scrollbar { display: none; }
                 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
