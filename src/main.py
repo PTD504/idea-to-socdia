@@ -15,7 +15,6 @@ from fastapi import FastAPI
 from src.api.routes import router as api_router, set_workflow_manager
 from src.services.google_genai_service import GoogleGenAIService
 from src.services.media_service import GoogleVertexMediaService
-from src.services.youtube_service import YouTubeService
 from src.workflows.workflow_manager import ContentWorkflowManager
 
 logging.basicConfig(

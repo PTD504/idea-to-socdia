@@ -164,3 +164,26 @@ async def regenerate_media(body: RegenerateMediaRequest):
     except Exception as e:
         logger.error("Error during media regeneration: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class MergeVideosRequest(BaseModel):
+    """Body for POST /merge_videos."""
+    video_urls: list[str]
+
+
+@router.post("/merge_videos")
+async def merge_videos(body: MergeVideosRequest):
+    """Merge multiple videos into a single video."""
+    manager = _require_manager()
+    try:
+        # Check if media_service has concatenate_videos method (e.g. mock vs real)
+        if not hasattr(manager._media_service, 'concatenate_videos'):
+             raise HTTPException(status_code=501, detail="Media service does not support video concatenation.")
+             
+        merged_url = await manager._media_service.concatenate_videos(body.video_urls)
+        return {"url": merged_url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error during video merge: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))

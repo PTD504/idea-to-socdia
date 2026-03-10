@@ -233,6 +233,98 @@ class GoogleVertexMediaService(MediaService):
         except Exception as e:
             logger.error("Failed to generate video. Error: %s", str(e))
             return f"https://placehold.co/{dimensions}?text=Video+Generation+Failed"
+            
+    async def concatenate_videos(self, video_urls: list[str]) -> str:
+        """Download and concatenate multiple videos into a single file.
+
+        Args:
+            video_urls: List of URLs pointing to the video files to be merged.
+
+        Returns:
+            The public URL to access the merged video.
+        """
+        if not video_urls:
+            raise ValueError("video_urls list cannot be empty.")
+            
+        # Detect mock URLs and short-circuit to avoid moviepy codec crashes on SVGs
+        if any("placehold.co" in url for url in video_urls):
+            logger.info("Mock video URL detected. Bypassing concatenation logic.")
+            await asyncio.sleep(2)  # Simulate processing time
+            return "https://placehold.co/1080x1920/000000/FFF?text=Merged+Video"
+            
+        logger.info("Concatenating %d videos...", len(video_urls))
+        asset_id = uuid.uuid4().hex[:12]
+        filename = f"merged_{asset_id}.mp4"
+        filepath = os.path.join(self.STATIC_VIDEOS_DIR, filename)
+        
+        # Determine paths for temporary downloads
+        temp_dir = os.path.join(self.STATIC_VIDEOS_DIR, "temp_downloads")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_filepaths = []
+        for i in range(len(video_urls)):
+            temp_file = os.path.join(temp_dir, f"temp_{asset_id}_{i}.mp4")
+            temp_filepaths.append(temp_file)
+
+        def _merge_and_save():
+            import urllib.request
+            try:
+                # 1. Download videos
+                for url, temp_path in zip(video_urls, temp_filepaths):
+                    logger.info("Downloading video from %s to %s", url, temp_path)
+                    urllib.request.urlretrieve(url, temp_path)
+                
+                # 2. Extract and concatenate Using moviepy
+                from moviepy import VideoFileClip, concatenate_videoclips
+                
+                clips = []
+                final_clip = None
+                try:
+                    for path in temp_filepaths:
+                        clip = VideoFileClip(path)
+                        clips.append(clip)
+                    
+                    logger.info("Concatenating clips...")
+                    final_clip = concatenate_videoclips(clips, method='compose')
+                    
+                    # 3. Write output
+                    logger.info("Writing merged video to %s", filepath)
+                    # Ensure no audio codec errors if some clips lack sound, and suppress command line output
+                    final_clip.write_videofile(
+                        filepath, 
+                        codec='libx264', 
+                        audio_codec='aac', 
+                        temp_audiofile=os.path.join(temp_dir, f"temp-audio_{asset_id}.m4a"),
+                        remove_temp=True,
+                        logger=None
+                    )
+                finally:
+                    # Close the clips manually to avoid memory leaks or file locks on Windows
+                    if final_clip is not None:
+                        try:
+                            final_clip.close()
+                        except Exception as e:
+                            logger.warning("Error closing final_clip: %s", e)
+                    for clip in clips:
+                        try:
+                            clip.close()
+                        except Exception as e:
+                            logger.warning("Error closing clip: %s", e)
+                
+            finally:
+                # 4. Cleanup temporary files
+                for temp_path in temp_filepaths:
+                    if os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except OSError as e:
+                            logger.warning("Could not remove temp file %s: %s", temp_path, e)
+
+        # Offload all blocking operations to thread to prevent stalling FastAPI event loop
+        await asyncio.to_thread(_merge_and_save)
+        
+        url = f"http://localhost:8000/static/generated/videos/{filename}"
+        logger.info("Merged video saved successfully: %s", url)
+        return url
              
     def get_tools(self) -> list:
         """Returns the list of functions intended to be passed to the Gemini 'tools' parameter.
