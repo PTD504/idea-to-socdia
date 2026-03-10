@@ -69,6 +69,10 @@ interface WorkflowState {
     setIsStreaming: (status: boolean) => void;
     parseAndSetEditorData: (rawText: string, format: string, referenceImages?: string[], includeMedia?: boolean) => void;
     updateMediaItem: (id: string, newUrl: string, newPrompt: string) => void;
+    finalVideoUrl: string | null;
+    setFinalVideoUrl: (url: string | null) => void;
+    mergeVideoScenes: () => Promise<void>;
+    resetWorkflow: () => void;
 }
 
 export const useWorkflowStore = create<WorkflowState>((set) => ({
@@ -129,6 +133,64 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         );
         return { parsedData: { ...state.parsedData, media: updatedMedia } };
     }),
+    finalVideoUrl: null,
+    setFinalVideoUrl: (url) => set({ finalVideoUrl: url }),
+    resetWorkflow: () => set({
+        currentStage: 'input',
+        parsedData: null,
+        topic: '',
+        deepDescription: '',
+        style: '',
+        targetFormat: 'facebook_post',
+        finalText: '',
+        referenceImageBase64: null,
+        referenceImages: [],
+        imageInstructions: '',
+        includeMediaInPost: false,
+        scenes: [],
+        streamBlocks: [],
+        isStreaming: false,
+        finalVideoUrl: null
+    }),
+    mergeVideoScenes: async () => {
+        const state = useWorkflowStore.getState();
+        if (!state.parsedData || !state.parsedData.media) return;
+
+        const videoUrls = state.parsedData.media
+            .filter(m => m.type === 'video')
+            .sort((a, b) => (a.order || 0) - (b.order || 0))
+            .map(m => m.url)
+            .filter(url => url && url.trim() !== '');
+
+        if (videoUrls.length === 0) {
+            console.warn("No valid video URLs to merge.");
+            return;
+        }
+
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const response = await fetch(`${apiUrl}/merge_videos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ video_urls: videoUrls }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("Failed to merge videos:", errorData);
+                alert(`Failed to merge videos: ${errorData.detail || response.statusText}`);
+                return;
+            }
+
+            const data = await response.json();
+            if (data.url) {
+                state.setFinalVideoUrl(data.url);
+            }
+        } catch (error) {
+            console.error("Network error while merging videos:", error);
+            alert("Network error while merging videos. Please check your connection and try again.");
+        }
+    },
     parseAndSetEditorData: (rawText, format, referenceImages, includeMedia) => {
         const deliverableMatch = rawText.match(/<final_deliverable>([\s\S]*?)<\/final_deliverable>/);
         if (!deliverableMatch) return;
