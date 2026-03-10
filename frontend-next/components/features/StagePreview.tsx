@@ -2,42 +2,50 @@
 
 import { useWorkflowStore } from "@/store/workflowStore";
 import { motion } from "framer-motion";
-import { Globe, ThumbsUp, MessageSquare, Share2, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { FacebookPostPreview } from "./previews/FacebookPostPreview";
+import { InstagramPostPreview } from "./previews/InstagramPostPreview";
+import { YouTubePostPreview } from "./previews/YouTubePostPreview";
+import { YouTubeShortPreview } from "./previews/YouTubeShortPreview";
+import { YouTubeVideoPreview } from "./previews/YouTubeVideoPreview";
 
 export function StagePreview() {
-  const { streamBlocks, setStage, finalText } = useWorkflowStore();
+  const { setStage, targetFormat, resetWorkflow } = useWorkflowStore();
 
   const handleBack = () => {
     setStage("editor");
   };
 
-  const mediaBlocks = streamBlocks.filter((b) => b.type === "media_result");
-
-  const renderText = (text: string) => {
-    return text.split(/(\s+)/).map((word, index) => {
-      if (word.startsWith("#")) {
-        return (
-          <span key={index} className="text-blue-600">
-            {word}
-          </span>
-        );
-      }
-      return <span key={index}>{word}</span>;
-    });
-  };
+  const isDarkTheme = targetFormat === 'youtube_short';
+  const containerBg = isDarkTheme ? 'bg-[#0f0f0f]' : 'bg-[#f0f2f5]';
+  const textColor = isDarkTheme ? 'text-white' : 'text-gray-700';
 
   return (
     <motion.div
-      className="flex flex-col h-screen w-full bg-creative-paper relative"
+      className={`flex flex-col h-screen w-full ${containerBg} relative transition-colors duration-300`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
+      {/* Absolute New Content Button */}
+      <div className="absolute top-4 right-4 z-50">
+        <button
+          onClick={() => {
+            const confirmDiscard = window.confirm("Are you sure you want to discard your current content and start a new one?");
+            if (confirmDiscard) {
+                resetWorkflow();
+            }
+          }}
+          className={`border ${isDarkTheme ? 'border-white/20 text-white hover:bg-white/10' : 'border-gray-300 text-gray-700 hover:bg-gray-100'} rounded-full px-4 py-2 text-sm font-medium transition-colors shadow-sm backdrop-blur-sm`}
+        >
+          New Content
+        </button>
+      </div>
       {/* Header */}
       <header className="p-4 flex items-center shrink-0">
         <button
           onClick={handleBack}
-          className="flex items-center gap-2 px-4 py-2 text-deep-black hover:bg-black/5 rounded-lg transition-colors font-medium"
+          className={`flex items-center gap-2 px-4 py-2 ${textColor} hover:bg-black/5 rounded-lg transition-colors font-medium`}
         >
           <ArrowLeft size={20} />
           Back to Editor
@@ -45,78 +53,22 @@ export function StagePreview() {
       </header>
 
       {/* Main Content - Centered Card */}
-      <main className="flex-grow flex items-center justify-center p-6 overflow-y-auto">
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-xl w-full overflow-hidden flex flex-col">
-          {/* Post Header */}
-          <div className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gray-300 shrink-0" />
-            <div className="flex flex-col">
-              <span className="font-bold text-deep-black text-[15px]">
-                Creative Director Agent
-              </span>
-              <div className="flex items-center gap-1 text-gray-500 text-[13px]">
-                <span>Just now</span>
-                <span aria-hidden="true">&middot;</span>
-                <Globe size={12} />
-              </div>
-            </div>
+      <main className="flex-grow flex items-start justify-center p-6 overflow-y-auto w-full">
+        {targetFormat === 'facebook_post' ? (
+          <FacebookPostPreview />
+        ) : targetFormat === 'instagram_post' ? (
+          <InstagramPostPreview />
+        ) : targetFormat === 'youtube_post' ? (
+          <YouTubePostPreview />
+        ) : targetFormat === 'youtube_short' ? (
+          <YouTubeShortPreview />
+        ) : targetFormat === 'youtube_video' ? (
+          <YouTubeVideoPreview />
+        ) : (
+          <div className="bg-white p-6 rounded-xl shadow-md flex items-center justify-center max-w-xl w-full">
+            <span className="text-gray-500 font-medium text-[15px]">Preview not supported for this format yet.</span>
           </div>
-
-          {/* Post Body */}
-          <div className="px-4 pb-3 text-[15px] text-deep-black whitespace-pre-wrap leading-normal font-sans">
-            {renderText(finalText)}
-          </div>
-
-          {/* Post Media */}
-          {mediaBlocks.length > 0 && (
-            <div
-              className={`grid gap-[1px] bg-gray-200 ${
-                mediaBlocks.length > 1 ? "grid-cols-2" : "grid-cols-1"
-              }`}
-            >
-              {mediaBlocks.map((block) => {
-                const url = block.content;
-                const isVideo = url.match(/\.(mp4|webm|mov)$/i);
-                return (
-                  <div key={block.id} className="w-full aspect-square relative bg-white">
-                    {isVideo ? (
-                      <video
-                        src={url}
-                        controls
-                        className="w-full h-full object-cover relative"
-                      />
-                    ) : (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={url}
-                        alt="Generated media"
-                        className="w-full h-full object-cover relative"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Post Footer */}
-          <div className="px-4 py-1 border-t border-gray-200 text-gray-500 text-[15px]">
-            <div className="flex items-center justify-between py-1">
-              <button className="flex items-center justify-center gap-2 flex-1 hover:bg-gray-100 py-2 rounded-md transition-colors font-medium">
-                <ThumbsUp size={20} />
-                <span>Like</span>
-              </button>
-              <button className="flex items-center justify-center gap-2 flex-1 hover:bg-gray-100 py-2 rounded-md transition-colors font-medium">
-                <MessageSquare size={20} />
-                <span>Comment</span>
-              </button>
-              <button className="flex items-center justify-center gap-2 flex-1 hover:bg-gray-100 py-2 rounded-md transition-colors font-medium">
-                <Share2 size={20} />
-                <span>Share</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
       </main>
     </motion.div>
   );
