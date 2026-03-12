@@ -36,6 +36,8 @@ export interface StreamBlock {
     url?: string;
 }
 
+export type ParsedTextField = 'title' | 'content' | 'hashtags' | 'youtubeTags';
+
 interface WorkflowState {
     currentStage: Stage;
     parsedData: ParsedData | null;
@@ -51,6 +53,7 @@ interface WorkflowState {
     scenes: Scene[];
     streamBlocks: StreamBlock[];
     isStreaming: boolean;
+    isMergingVideos: boolean;
     setStage: (stage: Stage) => void;
     setTopic: (topic: string) => void;
     setDeepDescription: (desc: string) => void;
@@ -67,8 +70,11 @@ interface WorkflowState {
     updateStreamBlock: (id: string, updates: Partial<StreamBlock>) => void;
     appendContentToLastTextBlock: (content: string) => void;
     setIsStreaming: (status: boolean) => void;
+    setIsMergingVideos: (status: boolean) => void;
     parseAndSetEditorData: (rawText: string, format: string, referenceImages?: string[], includeMedia?: boolean) => void;
     updateMediaItem: (id: string, newUrl: string, newPrompt: string) => void;
+    updateParsedData: (updates: Partial<ParsedData>) => void;
+    updateParsedTextField: (field: ParsedTextField, value: string) => void;
     finalVideoUrl: string | null;
     setFinalVideoUrl: (url: string | null) => void;
     mergeVideoScenes: () => Promise<void>;
@@ -90,6 +96,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     scenes: [],
     streamBlocks: [],
     isStreaming: false,
+    isMergingVideos: false,
     setStage: (stage) => set({ currentStage: stage }),
     setTopic: (topic) => set({ topic }),
     setDeepDescription: (deepDescription) => set({ deepDescription }),
@@ -126,6 +133,19 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         }
     }),
     setIsStreaming: (status) => set({ isStreaming: status }),
+    setIsMergingVideos: (status) => set({ isMergingVideos: status }),
+    updateParsedData: (updates) => set((state) => ({
+        parsedData: state.parsedData ? { ...state.parsedData, ...updates } : null
+    })),
+    updateParsedTextField: (field, value) => set((state) => {
+        if (!state.parsedData) return state;
+        return {
+            parsedData: {
+                ...state.parsedData,
+                [field]: value,
+            },
+        };
+    }),
     updateMediaItem: (id, newUrl, newPrompt) => set((state) => {
         if (!state.parsedData) return state;
         const updatedMedia = state.parsedData.media.map(m => 
@@ -150,11 +170,15 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         scenes: [],
         streamBlocks: [],
         isStreaming: false,
+        isMergingVideos: false,
         finalVideoUrl: null
     }),
     mergeVideoScenes: async () => {
         const state = useWorkflowStore.getState();
+        if (state.isMergingVideos) return;
         if (!state.parsedData || !state.parsedData.media) return;
+
+        state.setIsMergingVideos(true);
 
         const videoUrls = state.parsedData.media
             .filter(m => m.type === 'video')
@@ -189,6 +213,8 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         } catch (error) {
             console.error("Network error while merging videos:", error);
             alert("Network error while merging videos. Please check your connection and try again.");
+        } finally {
+            useWorkflowStore.getState().setIsMergingVideos(false);
         }
     },
     parseAndSetEditorData: (rawText, format, referenceImages, includeMedia) => {
@@ -255,3 +281,4 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         set({ parsedData: { title, content, hashtags, youtubeTags, media } });
     },
 }));
+

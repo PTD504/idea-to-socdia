@@ -7,12 +7,13 @@ export function usePreventUnload(shouldPrevent: boolean) {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             e.preventDefault();
             e.returnValue = '';
+            return '';
         };
 
-        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('beforeunload', handleBeforeUnload, { capture: true });
         
         return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('beforeunload', handleBeforeUnload, { capture: true });
         };
     }, [shouldPrevent]);
 }
