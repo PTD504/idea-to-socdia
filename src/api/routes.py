@@ -148,14 +148,18 @@ async def enhance_text(body: EnhanceTextRequest):
 async def regenerate_media(body: RegenerateMediaRequest):
     """Regenerate a specific media asset (image or video)."""
     manager = _require_manager()
+    aspect_ratio = body.aspect_ratio or "16:9"
     
     try:
         if body.media_type == "image":
-            new_url = await manager._media_service.generate_image(body.prompt)
+            new_url = await manager._media_service.generate_image(
+                body.prompt,
+                aspect_ratio=aspect_ratio,
+            )
         elif body.media_type == "video":
             new_url = await manager._media_service.generate_video(
                 body.prompt, 
-                aspect_ratio=body.aspect_ratio or "16:9"
+                aspect_ratio=aspect_ratio
             )
         else:
             raise HTTPException(status_code=400, detail="Invalid media_type. Must be 'image' or 'video'.")

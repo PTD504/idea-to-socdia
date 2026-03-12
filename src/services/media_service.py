@@ -10,6 +10,7 @@ import logging
 import uuid
 import time
 from abc import ABC, abstractmethod
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +102,19 @@ class GoogleVertexMediaService(MediaService):
         logger.info("Generating real image for prompt: %s", prompt[:80])
         asset_id = uuid.uuid4().hex[:12]
 
+        ### BEGIN TEST
+
         dimensions = "1080x1920" if aspect_ratio == "9:16" else "1920x1080"
+        
+        image_number = random.randint(1, 32)
+        image_filename = f"image_{image_number}.png"
 
         if use_mock_image:
-            return f"https://placehold.co/{dimensions}/000000/FFF?text=Mock+Image"
+            if dimensions == "1080x1920":
+                return f"http://localhost:8000/static/generated/images/short/image.jpeg"
+            return f"http://localhost:8000/static/generated/images/{image_filename}"
+
+        ### END TEST
 
         filename = f"img_{asset_id}.png"
         filepath = os.path.join(self.STATIC_IMAGES_DIR, filename)
@@ -169,10 +179,22 @@ class GoogleVertexMediaService(MediaService):
         logger.info("Generating video for prompt: %s", prompt[:80])
         asset_id = uuid.uuid4().hex[:12]
 
+        ### BEGIN TEST
+
         dimensions = "1080x1920" if aspect_ratio == "9:16" else "1920x1080"
+        
+        if dimensions == "1080x1920":
+            dimension_name = "shorts"
+        else:
+            dimension_name = "longs"
+
+        video_number = random.randint(1, 5)
+        filename = f"video_{video_number}.mp4"
 
         if use_mock_video:
-            return f"https://placehold.co/{dimensions}/000000/FFF?text=Mock+Video"
+            return f"http://localhost:8000/static/generated/videos/{dimension_name}/{filename}"
+
+        ### END TEST
 
         filename = f"vid_{asset_id}.mp4"
         filepath = os.path.join(self.STATIC_VIDEOS_DIR, filename)
