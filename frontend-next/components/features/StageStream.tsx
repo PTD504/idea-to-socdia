@@ -1,16 +1,19 @@
 "use client";
 
 import * as React from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { usePreventUnload } from "@/hooks/usePreventUnload";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 export function StageStream() {
     const { streamBlocks, isStreaming, setStage, targetFormat, parseAndSetEditorData, referenceImages, includeMediaInPost, resetWorkflow } = useWorkflowStore();
     const scrollRef = React.useRef<HTMLDivElement>(null);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
     // Auto-scroll logic
     React.useEffect(() => {
@@ -28,12 +31,7 @@ export function StageStream() {
     return (
         <div className="min-h-screen w-full bg-creative-paper p-8 flex flex-col items-center relative">
             <button
-                onClick={() => {
-                    const confirmDiscard = window.confirm("Are you sure you want to discard your current content and start a new one?");
-                    if (confirmDiscard) {
-                        resetWorkflow();
-                    }
-                }}
+                onClick={() => setIsConfirmOpen(true)}
                 className="absolute top-6 right-6 md:top-8 md:right-8 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-full px-4 py-2 text-sm font-medium transition-colors z-50 shadow-sm bg-white/50 backdrop-blur-sm"
             >
                 New Content
@@ -151,7 +149,7 @@ export function StageStream() {
 
                                     {block.type === 'error' && (
                                         <div className="bg-red-50/80 backdrop-blur-md border border-red-200 rounded-2xl p-4 shadow-sm text-red-600 text-sm font-medium">
-                                            ⚠️ Error: {block.content}
+                                            Error: {block.content}
                                         </div>
                                     )}
                                 </motion.div>
@@ -180,6 +178,19 @@ export function StageStream() {
                     )}
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={isConfirmOpen}
+                title="Discard Current Content?"
+                message="All unsaved edits will be lost. This action cannot be undone."
+                confirmLabel="Discard"
+                cancelLabel="Keep Editing"
+                onConfirm={() => {
+                    setIsConfirmOpen(false);
+                    resetWorkflow();
+                }}
+                onCancel={() => setIsConfirmOpen(false)}
+            />
         </div>
     );
 }
