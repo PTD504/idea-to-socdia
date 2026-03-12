@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { CSSProperties, useState } from "react";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import { useWorkflowStore } from "../../store/workflowStore";
 import { FacebookPostForm } from "./forms/FacebookPostForm";
@@ -181,6 +181,7 @@ export function StageInput() {
                             {formatOptions.map((format) => {
                                 const isHovered = hoveredFormatId === format.id;
                                 const isSomethingHovered = hoveredFormatId !== null;
+                                const isSelected = selectedFormatLocal === format.id;
                                 const opacity = isSomethingHovered ? (isHovered ? 1 : 0.6) : 1;
 
                                 return (
@@ -190,21 +191,24 @@ export function StageInput() {
                                         onHoverStart={() => setHoveredFormatId(format.id)}
                                         onHoverEnd={() => setHoveredFormatId(null)}
                                         animate={{ 
-                                            scale: isHovered ? 1.05 : 1, 
-                                            y: isHovered ? -10 : 0,
+                                            scale: isHovered || isSelected ? 1.03 : 1,
+                                            y: isHovered || isSelected ? -8 : 0,
                                             opacity: opacity,
-                                            boxShadow: isHovered 
-                                                ? "0 20px 40px -10px rgba(99, 102, 241, 0.25), 0 0 20px rgba(236, 72, 153, 0.15)" 
+                                            boxShadow: isHovered || isSelected
+                                                ? "0 20px 40px -14px rgba(15, 23, 42, 0.16), 0 10px 24px -16px rgba(99, 102, 241, 0.18)"
                                                 : "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)"
                                         }}
                                         whileTap={{ scale: 0.96 }}
                                         transition={{ duration: 0.4, ease: "easeOut" }}
-                                        className="relative overflow-hidden flex flex-col items-center justify-center p-8 text-center bg-white/80 backdrop-blur-md border border-gray-200 rounded-[2rem] min-w-[260px] flex-grow md:max-w-[calc(50%-0.75rem)] lg:max-w-[calc(33.333%-1rem)] transition-colors duration-300"
+                                        style={{ "--theme-color": FORMAT_COLORS[format.id] } as CSSProperties}
+                                        /* * Changed transition-all to transition-colors to prevent conflict with Framer Motion's transform animations.
+                                         */
+                                        className={`relative overflow-hidden flex flex-col items-center justify-center p-8 text-center rounded-[2rem] min-w-[260px] flex-grow md:max-w-[calc(50%-0.75rem)] lg:max-w-[calc(33.333%-1rem)] border transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-color)] focus-visible:ring-offset-2 ${isSelected ? "bg-white ring-2 ring-[var(--theme-color)] ring-offset-2 border-white shadow-md" : "bg-white/80 backdrop-blur-md border-gray-200/80 hover:bg-white/90 hover:border-white/90"}`}
                                     >
                                         <motion.div 
                                             className="absolute inset-0 z-0 bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/50 pointer-events-none"
                                             initial={{ opacity: 0 }}
-                                            animate={{ opacity: isHovered ? 1 : 0 }}
+                                            animate={{ opacity: isHovered || isSelected ? 1 : 0 }}
                                             transition={{ duration: 0.4 }}
                                         />
                                         
@@ -240,11 +244,15 @@ export function StageInput() {
                                             /> */}
                                         </div>
                                         <motion.div
-                                            className="absolute inset-4 rounded-[1.5rem] border-2 border-transparent pointer-events-none z-20"
-                                            animate={{ 
-                                                borderColor: isHovered ? "rgba(99, 102, 241, 0.3)" : "rgba(255,255,255,0)"
+                                            className="absolute inset-0 rounded-[2rem] pointer-events-none z-20"
+                                            animate={{
+                                                background: isSelected
+                                                    ? "linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0.08))"
+                                                    : isHovered
+                                                        ? "linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04))"
+                                                        : "linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0))"
                                             }}
-                                            transition={{ duration: 0.4 }}
+                                            transition={{ duration: 0.3 }}
                                         />
                                     </motion.button>
                                 );

@@ -6,9 +6,10 @@ import { motion } from "framer-motion";
 import { useWorkflowStore } from "../../../store/workflowStore";
 import { fetchStreamWorkflow, StreamChunk } from "../../../lib/streamClient";
 import { enhanceText } from "../../../lib/api";
-import { POPULAR_STYLES, ALL_STYLES } from "../../../lib/constants/styles";
+import { POPULAR_STYLES } from "../../../lib/constants/styles";
 import { usePreventUnload } from "../../../hooks/usePreventUnload";
-import { Sparkles, UploadCloud, X, Loader2, Workflow, ChevronDown } from "lucide-react";
+import { Sparkles, UploadCloud, X, Loader2, Workflow } from "lucide-react";
+import { StyleDropdown } from "@/components/ui/StyleDropdown";
 
 export function YouTubePostForm() {
     // Local state
@@ -237,26 +238,7 @@ export function YouTubePostForm() {
                             {vibe}
                         </button>
                     ))}
-                    <div className="relative">
-                        <select
-                            value={POPULAR_STYLES.includes(localAesthetic) ? "" : localAesthetic}
-                            onChange={(e) => setLocalAesthetic(e.target.value)}
-                            style={{ "--theme-color": "#FF0000" } as React.CSSProperties}
-                            className={`bg-white/80 backdrop-blur-md border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-[var(--theme-color)] focus:border-[var(--theme-color)] block w-full p-2.5 pr-10 appearance-none cursor-pointer shadow-sm transition-all focus:outline-none ${localAesthetic && !POPULAR_STYLES.includes(localAesthetic) ? 'ring-2 ring-[#FF0000]/50 border-[#FF0000]' : ''}`}
-                        >
-                            <option value="" disabled hidden>More Styles...</option>
-                            {ALL_STYLES.map((s) => (
-                                !POPULAR_STYLES.includes(s) && (
-                                    <option key={s} value={s} className="text-slate-800 bg-white">
-                                        {s}
-                                    </option>
-                                )
-                            ))}
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
-                            <ChevronDown size={16} />
-                        </div>
-                    </div>
+                    <StyleDropdown selectedStyle={localAesthetic} onSelectStyle={setLocalAesthetic} themeColor="#FF0000" />
                 </div>
             </div>
 
