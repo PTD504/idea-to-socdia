@@ -116,7 +116,7 @@ export function InstagramPostPreview() {
           <Bookmark size={24} className="text-gray-900 hover:text-gray-500 cursor-pointer" />
         </div>
         <div className="text-[14px] font-semibold text-gray-900 mt-2">
-          1,234 likes
+          0 likes
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export function InstagramPostPreview() {
         )}
 
         <div className="text-[10px] text-gray-500 mt-2 tracking-wide uppercase font-medium">
-          2 HOURS AGO
+          JUST NOW
         </div>
       </div>
     </div>

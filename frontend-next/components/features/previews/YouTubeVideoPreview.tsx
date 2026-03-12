@@ -1,16 +1,27 @@
 import React from 'react';
 import { useWorkflowStore } from "@/store/workflowStore";
 import { ThumbsUp, ThumbsDown, Share2, Download, MoreHorizontal, Bell } from "lucide-react";
+import { useRef, useEffect } from 'react';
 
 export function YouTubeVideoPreview() {
-  const { parsedData, finalVideoUrl } = useWorkflowStore();
+  const { parsedData, finalVideoUrl, currentStage } = useWorkflowStore();
 
   const title = parsedData?.title || "Untitled Video";
   const content = parsedData?.content || "";
+  const hashtags = parsedData?.hashtags || "";
   
   // Use the merged final video, or fallback to the first video in media, or null
   const fallbackVideo = parsedData?.media?.find(m => m.type === 'video')?.url || null;
   const videoSrc = finalVideoUrl || fallbackVideo;
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+  }, [videoSrc]);
 
   return (
     <div className="bg-white w-full max-w-5xl mx-auto rounded-xl shadow-sm border border-gray-200 overflow-hidden font-sans">
@@ -18,11 +29,15 @@ export function YouTubeVideoPreview() {
         {/* Main Video Player */}
         <div className="w-full aspect-video bg-black rounded-xl overflow-hidden relative flex items-center justify-center shadow-md">
           {videoSrc ? (
-            <video 
+            <video
+              ref={videoRef}
+              key={`${currentStage}-${videoSrc}`}
               src={videoSrc}
-              controls
-              autoPlay
-              className="w-full h-full object-contain"
+              controls={true}
+              autoPlay={true}
+              playsInline={true}
+              disablePictureInPicture
+              className="w-full h-full object-contain relative z-0"
             />
           ) : (
             <div className="text-gray-500 font-medium">
@@ -49,7 +64,7 @@ export function YouTubeVideoPreview() {
                 dangPhan
               </span>
               <span className="text-xs text-gray-500 mt-0.5">
-                1.2M subscribers
+                1.2T subscribers
               </span>
             </div>
             
@@ -65,7 +80,7 @@ export function YouTubeVideoPreview() {
             <div className="flex items-center bg-[#f2f2f2] rounded-full shrink-0">
               <button className="flex items-center gap-2 px-4 py-2 hover:bg-[#e5e5e5] rounded-l-full font-medium text-sm text-[#0f0f0f] transition-colors">
                 <ThumbsUp size={20} />
-                <span>12K</span>
+                <span>0</span>
               </button>
               <div className="w-[1px] h-6 bg-gray-300" />
               <button className="px-3 py-2 hover:bg-[#e5e5e5] rounded-r-full transition-colors text-[#0f0f0f]">
@@ -93,9 +108,9 @@ export function YouTubeVideoPreview() {
         </div>
 
         {/* Description Box */}
-        <div className="bg-[#f2f2f2] hover:bg-[#e5e5e5] transition-colors rounded-xl p-3 mt-4 text-sm text-[#0f0f0f] cursor-pointer">
+        <div className="bg-[#f2f2f2] hover:bg-[#e5e5e5] transition-colors rounded-xl p-3 mt-4 text-sm text-[#0f0f0f]">
           <div className="font-semibold text-[14px]">
-            <span>2,492,084 views  &middot;  Mar 10, 2026</span>
+            <span>0 views  &middot;  Just now</span>
           </div>
           
           {content && (
@@ -103,9 +118,15 @@ export function YouTubeVideoPreview() {
               {content}
             </div>
           )}
+
+          {hashtags && (
+            <div className="mt-3 whitespace-pre-wrap text-[#065fd4] font-medium">
+              {hashtags}
+            </div>
+          )}
           
           <div className="mt-4 font-medium text-xs text-gray-500">
-            Show more
+            Show less
           </div>
         </div>
         

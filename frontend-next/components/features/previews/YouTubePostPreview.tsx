@@ -24,7 +24,7 @@ export function YouTubePostPreview() {
                 dangPhan
               </span>
               <span className="text-[13px] text-gray-500 ml-1">
-                &middot; 2 hours ago
+                &middot; Just now
               </span>
             </div>
           </div>
@@ -72,7 +72,7 @@ export function YouTubePostPreview() {
         <div className="flex items-center bg-gray-100 rounded-full">
           <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-200 cursor-pointer rounded-l-full transition-colors">
             <ThumbsUp size={18} />
-            <span className="text-[14px] font-medium">1.2K</span>
+            <span className="text-[14px] font-medium">0</span>
           </button>
           <div className="w-[1px] h-4 bg-gray-300" />
           <button className="px-3 py-1.5 hover:bg-gray-200 cursor-pointer rounded-r-full transition-colors">
@@ -89,7 +89,7 @@ export function YouTubePostPreview() {
         {/* Comment Button */}
         <button className="flex items-center gap-2 hover:bg-gray-100 px-3 py-1.5 rounded-full font-medium text-[14px] transition-colors">
           <MessageSquare size={18} />
-          <span>123</span>
+          <span>0</span>
         </button>
       </div>
     </div>

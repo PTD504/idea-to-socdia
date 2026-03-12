@@ -100,7 +100,7 @@ export function FacebookPostPreview() {
             dangPhan
           </span>
           <div className="flex items-center gap-1 text-gray-500 text-[13px] leading-tight mt-0.5">
-            <span>2 hours ago</span>
+            <span>Just now</span>
             <span>&middot;</span>
             <Globe size={12} className="text-gray-500 fill-current" />
           </div>
