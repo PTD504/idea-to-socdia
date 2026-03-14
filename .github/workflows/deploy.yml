@@ -33,6 +33,7 @@ jobs:
               - 'src/**'
               - 'Dockerfile.backend'
               - 'requirements.txt'
+              - '.github/workflows/deploy.yml'
 
       - name: Authenticate to Google Cloud
         if: steps.filter.outputs.backend == 'true'
@@ -85,7 +86,8 @@ jobs:
             frontend:
               - 'frontend/**'
               - 'Dockerfile.frontend'
-
+              - '.github/workflows/deploy.yml'
+              
       - name: Authenticate to Google Cloud
         if: steps.filter.outputs.frontend == 'true'
         uses: google-github-actions/auth@v2
