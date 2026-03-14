@@ -20,9 +20,6 @@ jobs:
   deploy-backend:
     name: Build & Deploy Backend
     runs-on: ubuntu-latest
-    outputs:
-      backend_changes: ${{ steps.filter.outputs.backend }}
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -38,24 +35,29 @@ jobs:
               - 'requirements.txt'
 
       - name: Authenticate to Google Cloud
+        if: steps.filter.outputs.backend == 'true'
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
       - name: Set up Cloud SDK
+        if: steps.filter.outputs.backend == 'true'
         uses: google-github-actions/setup-gcloud@v2
 
       # Configure Docker Authentication
       - name: Configure Docker Authentication
+        if: steps.filter.outputs.backend == 'true'
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
       - name: Build and Push Backend Image
+        if: steps.filter.outputs.backend == 'true'
         run: |
           IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:${{ github.sha }}"
           docker build -t $IMAGE_PATH -f Dockerfile.backend .
           docker push $IMAGE_PATH
 
       - name: Deploy Backend to Cloud Run
+        if: steps.filter.outputs.backend == 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: idea-socdia-backend
@@ -83,7 +85,21 @@ jobs:
               - 'frontend/**'
               - 'Dockerfile.frontend'
 
-      - name: Authenticate & Build & Deploy Frontend
+      - name: Authenticate to Google Cloud
+        if: steps.filter.outputs.frontend == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        if: steps.filter.outputs.frontend == 'true'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker Authentication
+        if: steps.filter.outputs.frontend == 'true'
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & Push Frontend Image
         if: steps.filter.outputs.frontend == 'true'
         run: |
           IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/frontend:${{ github.sha }}"
@@ -91,6 +107,7 @@ jobs:
           docker push $IMAGE_PATH
 
       - name: Deploy Frontend to Cloud Run
+        if: steps.filter.outputs.frontend == 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: idea-socdia-frontend
