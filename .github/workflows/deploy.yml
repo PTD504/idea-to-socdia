@@ -67,6 +67,7 @@ jobs:
           env_vars: >-
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
 
   # --- FRONTEND ---
   deploy-frontend:
