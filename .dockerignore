@@ -1,11 +1,44 @@
-venv/
+# Node.js / Next.js
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+package-lock.json
+
+# Next.js build & cache
+.next
+.next/cache
+out
+dist
+
+# Python / FastAPI
 __pycache__/
 *.pyc
-.git/
-.env
-tests/
-.pytest_cache/
-.streamlit/
+*.pyo
+*.pyd
+*.sqlite3
+
+# Virtual environments
+env/
+venv/
+.venv/
+
+# Python build & dist
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Git
+.git
+.gitignore
+
+# System files
+.DS_Store
+Thumbs.db
+
 frontend/static/images/*
 !frontend/static/images/.gitkeep
 frontend/static/videos/*

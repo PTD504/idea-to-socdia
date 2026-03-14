@@ -4,7 +4,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.backend
     container_name: idea_socdia_backend
     ports:
       - "8000:8080"
@@ -18,13 +18,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        # Pass the backend URL during the build stage
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
     container_name: idea_socdia_frontend
     ports:
-      - "8501:8501"
+      - "3000:3000"
     environment:
-      # Container-to-container communication
-      - API_INTERNAL_URL=http://backend:8080
-      # Browser-to-host communication for fetching static images
-      - API_EXTERNAL_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend

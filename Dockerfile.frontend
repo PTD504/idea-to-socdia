@@ -1,24 +1,32 @@
-# Stage 1: Builder
-FROM python:3.13-slim AS builder
-
+# Stage 1: Install dependencies
+FROM node:18-alpine AS deps
 WORKDIR /app
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
 
-# Install Streamlit and required dependencies
-RUN pip install --no-cache-dir streamlit requests
-
-# Stage 2: Runtime
-FROM python:3.13-slim
-
+# Stage 2: Build the application
+FROM node:18-alpine AS builder
 WORKDIR /app
-
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Copy the Streamlit application code
 COPY frontend/ ./frontend/
+COPY --from=deps /app/node_modules ./frontend/node_modules
+
+WORKDIR /app/frontend
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+RUN npm run build
+
+# Stage 3: Production server
+FROM node:18-alpine AS runner
+WORKDIR /app/frontend
+
+ENV NODE_ENV=production
+ENV PORT=8080
+
+COPY --from=builder /app/frontend/.next/standalone ./
+COPY --from=builder /app/frontend/.next/static ./.next/static
+COPY --from=builder /app/frontend/public ./public
 
 EXPOSE 8080
 
-CMD ["streamlit", "run", "frontend/app.py", "--server.address", "0.0.0.0", "--server.port", "8080"]
+CMD ["node", "server.js"]

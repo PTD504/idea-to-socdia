@@ -25,9 +25,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy the application source code
 COPY src/ ./src/
 
-# Create the directory structure explicitly so FastAPI doesn't crash on mount
-RUN mkdir -p frontend/static
-
 # Cloud Run defaults to port 8080
 EXPOSE 8080
 
