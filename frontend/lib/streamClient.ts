@@ -12,6 +12,7 @@ export async function fetchStreamWorkflow(
     onChunk: (chunk: StreamChunk) => void
 ) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    // const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Use this for production, ensure it's set in .env
 
     useWorkflowStore.getState().setIsStreaming(true);
 

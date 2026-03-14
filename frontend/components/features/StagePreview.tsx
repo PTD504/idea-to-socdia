@@ -125,16 +125,18 @@ export function StagePreview() {
       </main>
 
       {/* Toast Notification */}
-      {showToast && (
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 30 }}
-          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] bg-gray-900/95 backdrop-blur-xl text-white px-6 py-3.5 rounded-2xl shadow-xl text-sm font-medium"
-        >
-          Automated posting to this platform is coming soon!
-        </motion.div>
-      )}
+      <div className="fixed bottom-8 left-0 right-0 flex justify-center z-[9999] pointer-events-none">
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="pointer-events-auto bg-gray-900/95 backdrop-blur-xl text-white px-6 py-3.5 rounded-2xl shadow-xl text-sm font-medium whitespace-nowrap"
+          >
+            Automated posting to this platform is coming soon!
+          </motion.div>
+        )}
+      </div>
     </motion.div>
   );
 }

@@ -21,12 +21,9 @@ export function MediaStudio({
     mediaItems,
     thumbnails,
     images,
-    videos,
     setEditingMedia,
     setEditedPrompt,
     setPreviewUrl,
-    isAllScenesOpen,
-    setIsAllScenesOpen,
     theme,
     hideScenes
 }: MediaStudioProps) {
@@ -37,8 +34,8 @@ export function MediaStudio({
     const isVideoFormat = targetFormat === 'youtube_video' || targetFormat === 'youtube_short';
     const isVertical = targetFormat === 'youtube_short';
 
-    const colorBase = theme.text.split('-')[1] || 'gray';
-    const hoverClasses = `hover:border-${colorBase}-500 hover:shadow-lg hover:shadow-${colorBase}-500/20`;
+    // const colorBase = theme.text.split('-')[1] || 'gray';
+    // const hoverClasses = `hover:border-${colorBase}-500 hover:shadow-lg hover:shadow-${colorBase}-500/20`;
 
     useEffect(() => {
         const studioNode = studioRef.current;

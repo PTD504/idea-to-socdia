@@ -193,6 +193,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
 
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            // const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL; // Use this for production, ensure it's set in .env
             const response = await fetch(`${apiUrl}/merge_videos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

@@ -11,13 +11,14 @@ import { usePreventUnload } from "../../../hooks/usePreventUnload";
 import { Sparkles, UploadCloud, X, Loader2 } from "lucide-react";
 import { StyleDropdown } from "@/components/ui/StyleDropdown";
 
-export function YouTubeVideoForm() {
+export function YouTubeShortForm() {
     // Local state
     const [localTopic, setLocalTopic] = useState("");
     const [localAesthetic, setLocalAesthetic] = useState("");
     const [localDescription, setLocalDescription] = useState("");
     const [localImages, setLocalImages] = useState<{ id: string; base64: string }[]>([]);
     const [localInstructions, setLocalInstructions] = useState("");
+    
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -42,10 +43,10 @@ export function YouTubeVideoForm() {
         setIsEnhancing(true);
         try {
             const enhancedText = await enhanceText({
-                target_format: "youtube_video",
-                main_field_label: "Video Concept / Working Title",
+                target_format: "youtube_short",
+                main_field_label: "The Hook / Core Idea",
                 main_field_text: localTopic,
-                target_field_label: "Content Outline & Pacing",
+                target_field_label: "Script Outline & Key Beats",
                 target_field_text: localDescription || undefined
             });
             if (enhancedText) {
@@ -95,8 +96,7 @@ export function YouTubeVideoForm() {
         setTopic(localTopic);
         setStyle(localAesthetic);
         
-        // Detailed Script mapping to deep_description
-        setDeepDescription(localDescription);
+        setDeepDescription(`Visual Vibe: ${localAesthetic}\nScript Outline Notes: ${localDescription}`);
         
         const base64Images = localImages.map(img => img.base64);
         setReferenceImages(base64Images);
@@ -113,12 +113,11 @@ export function YouTubeVideoForm() {
 
         const payload = {
             topic: localTopic,
-            deep_description: localDescription,
+            deep_description: `Visual Vibe: ${localAesthetic}\nScript Outline Notes: ${localDescription}`,
             style: localAesthetic,
-            target_format: "youtube_video",
+            target_format: "youtube_short",
             reference_images: base64Images.length > 0 ? base64Images : null,
-            image_instructions: localInstructions || null,
-            include_media_in_post: false
+            image_instructions: localInstructions || null
         };
 
         await fetchStreamWorkflow(payload, (chunk: StreamChunk) => {
@@ -169,10 +168,10 @@ export function YouTubeVideoForm() {
 
     return (
         <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto bg-white/60 backdrop-blur-xl border border-white/40 shadow-xl rounded-2xl p-8 flex flex-col gap-6">
-            {/* Field 1: Video Concept */}
+            {/* Field 1: The Hook / Core Idea */}
             <div className="flex flex-col gap-2">
                 <label htmlFor="topic" className="text-sm font-semibold text-slate-700 ml-1">
-                    Video Concept / Working Title <span className="text-rose-500">*</span>
+                    The Hook / Core Idea <span className="text-rose-500">*</span>
                 </label>
                 <input
                     id="topic"
@@ -180,7 +179,7 @@ export function YouTubeVideoForm() {
                     required
                     value={localTopic}
                     onChange={(e) => setLocalTopic(e.target.value)}
-                    placeholder="e.g., The secret history of artificial intelligence..."
+                    placeholder="e.g., 3 secrets to glowing skin..."
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF0000]/50 transition-all font-medium text-lg"
                 />
             </div>
@@ -205,11 +204,11 @@ export function YouTubeVideoForm() {
                 </div>
             </div>
 
-            {/* Field 3: Detailed Outline / Script */}
+            {/* Field 3: Script Outline & Key Beats */}
             <div className="flex flex-col gap-2 relative">
                 <div className="flex items-center justify-between ml-1">
                     <label htmlFor="description" className="text-sm font-semibold text-slate-700">
-                        Detailed Outline / Script <span className="text-slate-400 font-normal">(Optional)</span>
+                        Script Outline & Key Beats <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <button
                         type="button"
@@ -225,8 +224,8 @@ export function YouTubeVideoForm() {
                     id="description"
                     value={localDescription}
                     onChange={(e) => setLocalDescription(e.target.value)}
-                    placeholder="Add a rough script, key talking points, or sequence outline..."
-                    rows={5}
+                    placeholder="Add text for voiceover narration or on-screen captions targetting 15-60 seconds..."
+                    rows={4}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF0000]/50 transition-all resize-none"
                 />
             </div>
@@ -286,7 +285,7 @@ export function YouTubeVideoForm() {
                     type="text"
                     value={localInstructions}
                     onChange={(e) => setLocalInstructions(e.target.value)}
-                    placeholder="Instructions for AI regarding these assets (e.g., 'Animate like a documentary')"
+                    placeholder="Instructions for AI regarding these assets (e.g., 'Make it flashy')"
                     className="w-full mt-2 px-4 py-2.5 text-sm rounded-lg border border-slate-200 bg-white/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF0000]/50 transition-all"
                 />
             </div>

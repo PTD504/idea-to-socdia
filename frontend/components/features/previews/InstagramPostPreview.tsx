@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useWorkflowStore } from "@/store/workflowStore";
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from "lucide-react";
 
@@ -12,7 +12,7 @@ export function InstagramPostPreview() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
     const scrollLeft = scrollContainerRef.current.scrollLeft;
     const width = scrollContainerRef.current.offsetWidth;
@@ -20,7 +20,7 @@ export function InstagramPostPreview() {
     if (newSlide !== currentSlide) {
       setCurrentSlide(newSlide);
     }
-  };
+  }, [currentSlide]);
 
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -28,7 +28,7 @@ export function InstagramPostPreview() {
       el.addEventListener('scroll', handleScroll);
       return () => el.removeEventListener('scroll', handleScroll);
     }
-  }, [currentSlide]);
+  }, [handleScroll]);
 
   const renderMedia = () => {
     if (images.length === 0) return null;

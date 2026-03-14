@@ -9,6 +9,7 @@ export interface EnhanceTextPayload {
 
 export async function enhanceText(payload: EnhanceTextPayload): Promise<string> {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    // const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Use this for production, ensure it's set in .env
 
     const response = await fetch(`${apiUrl}/enhance_text`, {
         method: "POST",
@@ -28,6 +29,7 @@ export async function enhanceText(payload: EnhanceTextPayload): Promise<string> 
 
 export async function regenerateMediaAPI(mediaType: string, prompt: string, aspectRatio?: string): Promise<string> {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    // const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Use this for production, ensure it's set in .env
 
     const response = await fetch(`${apiUrl}/regenerate_media`, {
         method: "POST",

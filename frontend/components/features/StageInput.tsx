@@ -167,7 +167,7 @@ export function StageInput() {
                     >
                         <motion.div variants={itemVariants} className="text-center mb-16 w-full px-4">
                             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 text-slate-800 drop-shadow-sm">
-                                What will you create?
+                                What do you want to create?
                             </h1>
                             <p className="text-slate-500 text-xl md:text-2xl font-medium max-w-2xl mx-auto tracking-wide">
                                 Select a format to begin generating elegant content
