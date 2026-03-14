@@ -5,7 +5,6 @@ Google GenAI implementation of the LLMService.
 import logging
 import os
 
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
@@ -14,9 +13,6 @@ from src.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables (e.g., GEMINI_API_KEY)
-load_dotenv()
-
 # ------------------------------------------------------------------
 # Service Implementation
 # ------------------------------------------------------------------
@@ -24,7 +20,7 @@ load_dotenv()
 class GoogleGenAIService(LLMService):
     """Implementation of LLMService using the official google-genai SDK."""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, model_name: str = "gemini-2.5-flash", media_service=None):
         """Initialise the Google GenAI client.
 
         The client automatically picks up the GEMINI_API_KEY environment
@@ -41,8 +37,8 @@ class GoogleGenAIService(LLMService):
         self.client = genai.Client(api_key=api_key)
         self.model_name = model_name
         
-        from src.services.media_service import GoogleVertexMediaService
-        self.media_service = GoogleVertexMediaService()
+        from src.services.google_vertex_media_service import GoogleVertexMediaService
+        self.media_service = media_service or GoogleVertexMediaService()
 
         # Tools list for Gemini
         self.tools = self.media_service.get_tools()
@@ -58,6 +54,25 @@ class GoogleGenAIService(LLMService):
         include_media_in_post: bool = False,
     ):
         """Generate content by streaming and handling function calls asynchronously."""
+        from google.api_core.exceptions import (
+            DeadlineExceeded,
+            GoogleAPICallError,
+            ResourceExhausted,
+            ServiceUnavailable,
+            TooManyRequests,
+        )
+        import httpx
+
+        def _stream_error_message(exc: Exception) -> str:
+            if isinstance(exc, (ResourceExhausted, TooManyRequests)):
+                return "Generation is temporarily unavailable due to quota limits. Please retry shortly."
+            if isinstance(exc, (DeadlineExceeded, httpx.TimeoutException)):
+                return "Generation request timed out. Please try again."
+            if isinstance(exc, (ServiceUnavailable, httpx.NetworkError, httpx.ConnectError, httpx.ReadError)):
+                return "Network or service interruption occurred while generating content."
+            if isinstance(exc, GoogleAPICallError):
+                return "An upstream AI service error occurred while generating content."
+            return "Unexpected error while generating content."
         
         # Determine if the user uploaded reference images
         has_ref_images = bool(reference_images and len(reference_images) > 0)
@@ -97,7 +112,26 @@ class GoogleGenAIService(LLMService):
             )
             
         logger.info("Starting stream chat session for topic: %s", topic)
-        chat = self.client.chats.create(model=self.model_name, config=config)
+        try:
+            chat = self.client.chats.create(model=self.model_name, config=config)
+        except (ResourceExhausted, TooManyRequests, DeadlineExceeded, ServiceUnavailable, GoogleAPICallError, httpx.TimeoutException, httpx.NetworkError, httpx.ConnectError, httpx.ReadError) as exc:
+            logger.exception(
+                "Failed to initialize streaming chat. topic=%r, target_format=%r, error=%s",
+                topic,
+                target_format,
+                exc,
+            )
+            yield {"type": "error", "message": _stream_error_message(exc)}
+            return
+        except Exception as exc:
+            logger.exception(
+                "Unexpected error creating chat stream. topic=%r, target_format=%r, error=%s",
+                topic,
+                target_format,
+                exc,
+            )
+            yield {"type": "error", "message": _stream_error_message(exc)}
+            return
         
         # We use a loop here because after we send a tool response back, we get a NEW stream 
         # that we must also asynchronously iterate over to continue the sequence.
@@ -106,56 +140,80 @@ class GoogleGenAIService(LLMService):
         
         # Keep generating until the model decides it is done (stops using tools and sends finalizing text)
         while True:
-            response_stream = chat.send_message_stream(current_request)
             called_tools = False
             responses_to_send_back = []
-            
-            for chunk in response_stream:
-                # The google-genai SDK throws a warning/error if we try to access .text 
-                # when the chunk only contains a function_call. 
-                # We check the part type safely.
-                has_text = any(part.text for part in chunk.candidates[0].content.parts if part.text) if chunk.candidates and chunk.candidates[0].content.parts else False
-                
-                if has_text and getattr(chunk, "text", None):
-                    yield {"type": "text", "content": chunk.text}
-                    
-                if chunk.function_calls:
-                    called_tools = True
-                    for call in chunk.function_calls:
-                        name = call.name
-                        args = call.args
-                        logger.info("Model requested tool execution: %s with args: %s", name, args)
-                        
-                        # Notify frontend that tool execution started
-                        yield {"type": "tool_start", "tool": name, "args": args}
-                        
-                        result_url = ""
-                        try:
-                            # Execute the physical tool function natively in python
-                            if name == "generate_image":
-                                aspect_ratio = "9:16" if target_format == "youtube_short" else "16:9"
-                                result_url = await self.media_service.generate_image(prompt=args.get("prompt", ""), aspect_ratio=aspect_ratio)
-                            elif name == "generate_video":
-                                video_ratio = "9:16" if target_format in ["youtube_short", "instagram_post"] else "16:9"
-                                result_url = await self.media_service.generate_video(prompt=args.get("prompt", ""), aspect_ratio=video_ratio)
-                            else:
-                                logger.error("Model tried to call unknown tool: %s", name)
-                                result_url = "https://placehold.co/1920x1080?text=Unknown+Tool"
-                        except Exception as e:
-                            logger.error("Error executing tool %s: %s", name, e)
-                            result_url = "https://placehold.co/1920x1080?text=Generation+Failed"
-                            
-                        # Notify frontend that tool execution finished
-                        yield {"type": "media_result", "tool": name, "url": result_url}
-                        
-                        # Prepare the result dictionary to pass back to the model
-                        function_response = {"url": result_url}
-                        responses_to_send_back.append(
-                            types.Part.from_function_response(
-                                name=name,
-                                response=function_response
+
+            try:
+                response_stream = chat.send_message_stream(current_request)
+                for chunk in response_stream:
+                    # The google-genai SDK can fail when reading .text on tool-only chunks.
+                    # Validate text presence before attempting to stream it.
+                    has_text = any(part.text for part in chunk.candidates[0].content.parts if part.text) if chunk.candidates and chunk.candidates[0].content.parts else False
+
+                    if has_text and getattr(chunk, "text", None):
+                        yield {"type": "text", "content": chunk.text}
+
+                    if chunk.function_calls:
+                        called_tools = True
+                        for call in chunk.function_calls:
+                            name = call.name
+                            args = call.args
+                            logger.info("Model requested tool execution: %s with args: %s", name, args)
+
+                            # Notify frontend that tool execution started
+                            yield {"type": "tool_start", "tool": name, "args": args}
+
+                            result_url = ""
+                            try:
+                                # Execute the physical tool function natively in python
+                                if name == "generate_image":
+                                    aspect_ratio = "9:16" if target_format == "youtube_short" else "16:9"
+                                    result_url = await self.media_service.generate_image(prompt=args.get("prompt", ""), aspect_ratio=aspect_ratio)
+                                elif name == "generate_video":
+                                    video_ratio = "9:16" if target_format in ["youtube_short", "instagram_post"] else "16:9"
+                                    result_url = await self.media_service.generate_video(prompt=args.get("prompt", ""), aspect_ratio=video_ratio)
+                                else:
+                                    logger.error("Model tried to call unknown tool: %s", name)
+                                    result_url = "https://placehold.co/1920x1080?text=Unknown+Tool"
+                            except Exception as exc:
+                                logger.exception(
+                                    "Error executing tool %s for topic=%r, target_format=%r: %s",
+                                    name,
+                                    topic,
+                                    target_format,
+                                    exc,
+                                )
+                                result_url = "https://placehold.co/1920x1080?text=Generation+Failed"
+
+                            # Notify frontend that tool execution finished
+                            yield {"type": "media_result", "tool": name, "url": result_url}
+
+                            # Prepare the result dictionary to pass back to the model
+                            function_response = {"url": result_url}
+                            responses_to_send_back.append(
+                                types.Part.from_function_response(
+                                    name=name,
+                                    response=function_response
+                                )
                             )
-                        )
+            except (ResourceExhausted, TooManyRequests, DeadlineExceeded, ServiceUnavailable, GoogleAPICallError, httpx.TimeoutException, httpx.NetworkError, httpx.ConnectError, httpx.ReadError) as exc:
+                logger.exception(
+                    "Streaming generation failed. topic=%r, target_format=%r, error=%s",
+                    topic,
+                    target_format,
+                    exc,
+                )
+                yield {"type": "error", "message": _stream_error_message(exc)}
+                return
+            except Exception as exc:
+                logger.exception(
+                    "Unexpected streaming failure. topic=%r, target_format=%r, error=%s",
+                    topic,
+                    target_format,
+                    exc,
+                )
+                yield {"type": "error", "message": _stream_error_message(exc)}
+                return
             
             # Now that the generator is completely exhausted and chat.history is fully updated for this turn
             if called_tools and responses_to_send_back:
@@ -175,6 +233,14 @@ class GoogleGenAIService(LLMService):
         extra_context: str | None = None,
     ) -> str:
         """Use the LLM to enhance or generate text for a specific form field."""
+        from google.api_core.exceptions import (
+            DeadlineExceeded,
+            GoogleAPICallError,
+            ResourceExhausted,
+            ServiceUnavailable,
+            TooManyRequests,
+        )
+        import httpx
 
         # Build the system prompt from centralized templates
         system_prompt = build_enhance_text_prompt(
@@ -192,14 +258,55 @@ class GoogleGenAIService(LLMService):
             target_format, target_field_label,
         )
 
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.8,
-            ),
-        )
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.8,
+                ),
+            )
+        except (ResourceExhausted, TooManyRequests) as exc:
+            logger.exception(
+                "Quota exceeded while enhancing text. target_format=%r, target_field=%r, error=%s",
+                target_format,
+                target_field_label,
+                exc,
+            )
+            return "Text enhancement is temporarily unavailable due to quota limits. Please retry shortly."
+        except (DeadlineExceeded, httpx.TimeoutException) as exc:
+            logger.exception(
+                "Timeout while enhancing text. target_format=%r, target_field=%r, error=%s",
+                target_format,
+                target_field_label,
+                exc,
+            )
+            return "Text enhancement timed out. Please try again."
+        except (ServiceUnavailable, httpx.NetworkError, httpx.ConnectError, httpx.ReadError) as exc:
+            logger.exception(
+                "Network/service error while enhancing text. target_format=%r, target_field=%r, error=%s",
+                target_format,
+                target_field_label,
+                exc,
+            )
+            return "Text enhancement is temporarily unavailable due to a network issue."
+        except GoogleAPICallError as exc:
+            logger.exception(
+                "Google API call error while enhancing text. target_format=%r, target_field=%r, error=%s",
+                target_format,
+                target_field_label,
+                exc,
+            )
+            return "Text enhancement failed due to an upstream AI service error."
+        except Exception as exc:
+            logger.exception(
+                "Unexpected error while enhancing text. target_format=%r, target_field=%r, error=%s",
+                target_format,
+                target_field_label,
+                exc,
+            )
+            return "Text enhancement failed unexpectedly. Please try again."
 
         if not response.text:
             raise ValueError("No text returned from the enhance_text LLM call.")

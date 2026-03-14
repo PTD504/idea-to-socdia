@@ -20,7 +20,7 @@ class WorkflowManager(ABC):
         deep_description: str | None = None,
         reference_images: list[str] | None = None,
         image_instructions: str | None = None,
-        include_media_in_post: bool = True,
+        include_media_in_post: bool = False,
     ):
         """Streams content creation (text and media events)."""
         ...

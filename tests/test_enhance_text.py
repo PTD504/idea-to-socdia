@@ -11,7 +11,7 @@ from PIL import Image
 
 from src.main import app
 from src.api.routes import set_workflow_manager
-from src.services.media_service import GoogleVertexMediaService
+from src.services.google_vertex_media_service import GoogleVertexMediaService
 
 
 # ------------------------------------------------------------------

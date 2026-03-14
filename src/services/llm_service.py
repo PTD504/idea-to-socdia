@@ -20,7 +20,7 @@ class LLMService(ABC):
         style: str | None = None,
         reference_images: list[str] | None = None,
         image_instructions: str | None = None,
-        include_media_in_post: bool = True,
+        include_media_in_post: bool = False,
     ):
         """Stream interleaved text and media generation events.
 
@@ -32,7 +32,6 @@ class LLMService(ABC):
             reference_images: Optional list of base64-encoded reference images.
             image_instructions: Optional instructions on how to use the reference images.
             include_media_in_post: Whether the generated post should include media assets.
-
         Yields:
             Dicts representing streaming chunks, such as:
             - {"type": "text", "content": "..."}
