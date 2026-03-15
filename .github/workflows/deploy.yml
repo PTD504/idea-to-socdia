@@ -65,7 +65,7 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:${{ github.sha }}
           region: ${{ env.REGION }}
           flags: --allow-unauthenticated
-          env_vars: >-
+          env_vars: |
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
             FRONTEND_URL=${{ secrets.FRONTEND_URL }}
@@ -87,7 +87,7 @@ jobs:
               - 'frontend/**'
               - 'Dockerfile.frontend'
               - '.github/workflows/deploy.yml'
-              
+
       - name: Authenticate to Google Cloud
         if: steps.filter.outputs.frontend == 'true'
         uses: google-github-actions/auth@v2
