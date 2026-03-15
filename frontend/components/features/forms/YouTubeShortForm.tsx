@@ -224,7 +224,7 @@ export function YouTubeShortForm() {
                     id="description"
                     value={localDescription}
                     onChange={(e) => setLocalDescription(e.target.value)}
-                    placeholder="Add text for voiceover narration or on-screen captions targetting 15-60 seconds..."
+                    placeholder="Enter a brief description or key concepts..."
                     rows={4}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF0000]/50 transition-all resize-none"
                 />
