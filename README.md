@@ -2,7 +2,7 @@
 
 Idea2Socdia is a multimodal Gemini-powered creative agent that transforms a user topic into production-ready social media content through interleaved text, image, and video generation, with Human-in-the-Loop control over every major decision point.
 
-![Architecture Diagram](assets/architecture.png)
+![Architecture Diagram](assets/architecture.svg)
 
 ## Key Features
 
