@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 class GoogleGenAIService(LLMService):
     """Implementation of LLMService using the official google-genai SDK."""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash", media_service=None):
+    def __init__(self, model_name: str = "gemini-3-flash-preview", media_service=None):
         """Initialise the Google GenAI client.
 
         The client automatically picks up the GEMINI_API_KEY environment
         variable.
 
         Args:
-            model_name: The Gemini model to use (default: gemini-2.5-flash).
+            model_name: The Gemini model to use (default: gemini-3-flash-preview).
         """
         # We explicitly pass the api_key if it exists to fail fast if missing
         api_key = os.environ.get("GEMINI_API_KEY")
