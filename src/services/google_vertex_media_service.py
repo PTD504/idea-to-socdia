@@ -32,8 +32,13 @@ class GoogleVertexMediaService(MediaService):
     def __init__(self, gcs_service: GCSService | None = None, bucket_name: str | None = None) -> None:
         """Initialise the Google GenAI client for Vertex AI."""
         # Using vertexai=True required for imagen and veo models.
-        # This will automatically pick up GOOGLE_CLOUD_PROJECT from the environment.
-        self.client = genai.Client(vertexai=True)
+        project_id = os.getenv("GCP_PROJECT_ID")
+        location = os.getenv("GCP_REGION", "us-central1")
+        self.client = genai.Client(
+            vertexai=True,
+            project=project_id,
+            location=location,
+        )
         self.gcs_service = gcs_service or GCSService()
         self.bucket_name = bucket_name or os.getenv("GCS_BUCKET_NAME", "idea-to-socdia-assets")
 
