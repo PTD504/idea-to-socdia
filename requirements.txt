@@ -6,3 +6,4 @@ python-dotenv==1.2.2
 requests==2.32.5
 moviepy==2.2.1
 google-cloud-storage==3.9.0
+slowapi==0.1.9
