@@ -228,7 +228,7 @@ class GoogleVertexMediaService(MediaService):
                 with open(list_file_path, "w", encoding="utf-8") as list_file:
                     for temp_path in temp_filepaths:
                         escaped = temp_path.replace("'", "'\\''")
-                        list_file.write(f"file '{escaped}'\\n")
+                        list_file.write(f"file '{escaped}'\n")
 
                 # 3. Concatenate using ffmpeg.
                 ffmpeg_command = [
