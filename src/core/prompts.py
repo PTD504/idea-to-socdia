@@ -6,29 +6,37 @@ Centralized prompt templates and builders for the AI content generation system.
 FORMAT_GUIDELINES = {
     "facebook_post": (
         "FORMAT: Facebook Post.\n"
-        "STYLE: Engaging, community-focused, and conversational. Use line breaks and spacing for readability in the feed. "
-        "MEDIA: Interleave 1 to 3 high-quality images (more than 3 if user requests). Call 'generate_image' at key visual moments. — do not cluster all images at the start or end. "
+        "STYLE: Engaging, community-focused, and conversational. Use line breaks and spacing for readability in the feed.\n"
+        "MEDIA: Interleave 1 to 3 high-quality images (more than 3 if user requests). Call 'generate_image' at key visual moments. — do not cluster all images at the start or end.\n"
         "HASHTAGS: Include hashtags suitable for content topic (at most 5 hashtags)."
     ),
     "instagram_post": (
         "FORMAT: Instagram Post.\n"
-        "STYLE: Visual-first. Caption complements the image, not the other way around. "
-        "MEDIA: Always call 'generate_image' BEFORE writing the caption. "
+        "STYLE: Visual-first. Caption complements the image, not the other way around.\n"
+        "MEDIA: Always call 'generate_image' BEFORE writing the caption.\n"
         "1 image for single posts. 3 to 5 images for carousel posts, keeping them thematically consistent. Prioritize carousel posts over single posts if user doesn't specify otherwise."
     ),
     "youtube_video": (
         "FORMAT: Long-form YouTube Video.\n"
-        "STYLE: Structured as a professional video script. Include intro, body segments, and outro. "
-        "HASHTAGS: Do NOT include hashtags anywhere. "
-        "MEDIA: Heavily interleave 'generate_video' calls throughout for scenes, b-roll, and transitions. "
-        "Then call 'generate_image' EXACTLY ONCE for the YouTube Thumbnail. Make sure the thumbnail is engaging and represents the content well."
+        "STYLE: Structured as a professional video script. Include intro, body segments, and outro.\n"
+        "AUDIO & PACING STRATEGY: Confidently script spoken narration or dialogue if it fits the topic.\n"
+        "CRITICAL CONSTRAINTS FOR MEDIA TOOL:\n"
+        "1. The 'generate_video' tool strictly produces clips of up to 8-second per call. You MUST chunk your narration and scenes to fit this 8-second window.\n"
+        "2. Maintain strict visual and narrative continuity between consecutive clips.\n"
+        "3. PROMPT ENGINEERING EXACT STRUCTURE: When calling 'generate_video' for a scene with speech, your prompt MUST follow this exact template: '[Detailed description of scene, characters, lighting, and physical actions], saying: \"[Exact dialogue to be spoken]\".'\n"
+        "HASHTAGS: Do NOT include hashtags anywhere.\n"
+        "MEDIA: Heavily interleave 'generate_video' calls throughout the script. Then call 'generate_image' EXACTLY ONCE for the YouTube Thumbnail, make sure it matches the video content."
     ),
     "youtube_short": (
         "FORMAT: YouTube Short (Vertical Video).\n"
-        "STYLE: Fast-paced, maximum 60 seconds of narration (based on the content, though 20-30 seconds is ideal). Open with a powerful hook in the first 3 seconds. "
-        "HASHTAGS: Include 1 to 2 hashtags (maximum 3). Place them EITHER in the title OR in the description — never both. "
-        "MEDIA: Interleave 'generate_video' calls throughout for dynamic, fast-moving vertical visuals. "
-        "Then call 'generate_image' EXACTLY ONCE for the Cover Thumbnail. Make sure the thumbnail is engaging and represents the content well."
+        "STYLE: Fast-paced, maximum 60 seconds of content (25-30 seconds is ideal). Open with a powerful hook in the first 3 seconds.\n"
+        "AUDIO & PACING STRATEGY: Confidently script spoken narration or dialogue to drive the fast-paced narrative.\n"
+        "CRITICAL CONSTRAINTS FOR MEDIA TOOL:\n"
+        "1. The 'generate_video' tool strictly produces clips of up to 8-second per call. You MUST pace your script so each chunk of dialogue fits within an 8-second scene.\n"
+        "2. Ensure seamless visual transitions and logical continuity across these short chunks.\n"
+        "3. PROMPT ENGINEERING EXACT STRUCTURE: When calling 'generate_video' for a scene with speech, your prompt MUST follow this exact template: '[Detailed visual description of the vertical scene, characters, and actions], saying: \"[Exact dialogue to be spoken]\".'\n"
+        "HASHTAGS: Include 1 to 2 hashtags (maximum 3). Place them EITHER in the title OR in the description, never both.\n"
+        "MEDIA: Interleave 'generate_video' calls throughout the script. Then call 'generate_image' EXACTLY ONCE for the Cover Thumbnail, make sure it matches the video content."
     ),
     "youtube_post": (
         "FORMAT: YouTube Community Post.\n"
@@ -84,7 +92,7 @@ def build_stream_system_prompt(
         "- VAGUENESS FALLBACK: If the user's prompt is brief or lacks specific details, expand creatively using safe, general concepts. Do NOT fabricate highly specific, verifiable facts to fill the gaps.\n\n"
 
         "--- PHASE 1: NATIVE DRAFTING & TOOL CALLING ---\n"
-        "- STRATEGY FIRST: Start by explaining your overall strategy for the text/script, tone, and pacing based on the user's input. Why we should create the content in this way.\n"
+        "- STRATEGY FIRST: Start by explaining your overall strategy for the text/script, tone, and pacing based on the user's input. Why we should create the content in this way?\n"
         "- EXECUTE MEDIA: After explaining the text strategy, begin interleaving your commentary with actual media generation. When a visual is needed, STOP writing and call the appropriate media tool (see format rules).\n"
         "- IGNORE URLS: When a tool returns a URL, continue your commentary, referencing the visual you just created but NEVER output the URL string in your text.\n"
         "- RICH FORMATTING: You MUST use rich Markdown formatting in this phase, like **bold**, *italic*, list items, etc. Make your commentary visually engaging to read.\n"
