@@ -5,18 +5,22 @@ Provides health-check, workflow creation, status, and approval endpoints.
 """
 
 import logging
+import os
 
 import asyncio
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from src.workflows.workflow_manager import ContentWorkflowManager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 # The workflow manager is injected at startup via ``set_workflow_manager``.
 _manager: ContentWorkflowManager | None = None
@@ -71,6 +75,11 @@ class RegenerateMediaRequest(BaseModel):
     aspect_ratio: str | None = None
 
 
+class VerifyAccessRequest(BaseModel):
+    """Body for POST /api/verify-access."""
+    password: str
+
+
 # ------------------------------------------------------------------
 # Endpoints
 # ------------------------------------------------------------------
@@ -81,8 +90,25 @@ async def health_check() -> dict:
     """Liveness probe."""
     return {"status": "ok"}
 
+
+@router.post("/api/verify-access")
+async def verify_access(body: VerifyAccessRequest):
+    """Verify app access password against backend configuration."""
+    configured_password = os.environ.get("APP_PASSWORD")
+
+    if not configured_password:
+        logger.error("APP_PASSWORD is not configured on the backend.")
+        raise HTTPException(status_code=500, detail="Access password is not configured.")
+
+    if body.password != configured_password:
+        raise HTTPException(status_code=401, detail="Invalid password.")
+
+    return {"authenticated": True}
+
+
 @router.post("/stream_workflow")
-async def stream_workflow(body: StartWorkflowRequest):
+@limiter.limit("3/minute")
+async def stream_workflow(request: Request, body: StartWorkflowRequest):
     """Start and stream a content-creation workflow.
     
     Yields NDJSON encoded dictionary chunks containing text generation
@@ -144,7 +170,8 @@ async def enhance_text(body: EnhanceTextRequest):
 
 
 @router.post("/regenerate_media")
-async def regenerate_media(body: RegenerateMediaRequest):
+@limiter.limit("3/minute")
+async def regenerate_media(request: Request, body: RegenerateMediaRequest):
     """Regenerate a specific media asset (image or video)."""
     manager = _require_manager()
     aspect_ratio = body.aspect_ratio or "16:9"
@@ -175,7 +202,8 @@ class MergeVideosRequest(BaseModel):
 
 
 @router.post("/merge_videos")
-async def merge_videos(body: MergeVideosRequest):
+@limiter.limit("3/minute")
+async def merge_videos(request: Request, body: MergeVideosRequest):
     """Merge multiple videos into a single video."""
     manager = _require_manager()
     try:

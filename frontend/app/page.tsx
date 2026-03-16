@@ -1,14 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { StageInput } from "@/components/features/StageInput";
 import { StageStream } from "@/components/features/StageStream";
 import { StageEditor } from "@/components/features/StageEditor";
 import { StagePreview } from "@/components/features/StagePreview";
+import { LoginScreen } from "@/components/features/LoginScreen";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { AnimatePresence, motion } from "framer-motion";
 
 export default function Home() {
   const { currentStage } = useWorkflowStore();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  if (!isAuthenticated) {
+    return <LoginScreen onAuthenticated={() => setIsAuthenticated(true)} />;
+  }
 
   return (
     <main className="min-h-screen w-full text-deep-black font-sans selection:bg-blue-200 overflow-hidden bg-creative-paper">

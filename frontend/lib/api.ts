@@ -50,3 +50,25 @@ export async function regenerateMediaAPI(mediaType: string, prompt: string, aspe
     const data = await response.json();
     return data.url || "";
 }
+
+export async function verifyAccess(password: string): Promise<boolean> {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+    const response = await fetch(`${apiUrl}/api/verify-access`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            return false;
+        }
+        throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.authenticated === true;
+}

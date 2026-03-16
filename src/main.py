@@ -13,8 +13,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
-from src.api.routes import router as api_router, set_workflow_manager
+from src.api.routes import limiter, router as api_router, set_workflow_manager
 from src.services.google_genai_service import GoogleGenAIService
 from src.services.gcs_service import GCSService
 from src.services.google_vertex_media_service import GoogleVertexMediaService
@@ -58,6 +60,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS for local development (Next.js frontend default port 3000)
 app.add_middleware(
