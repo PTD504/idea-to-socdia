@@ -76,6 +76,7 @@ jobs:
           service: idea-socdia-backend
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:${{ github.sha }}
           region: ${{ env.REGION }}
+          timeout: '3600s'
           flags: --allow-unauthenticated
           env_vars: |
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
