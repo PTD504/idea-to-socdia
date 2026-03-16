@@ -10,6 +10,7 @@ Idea2Socdia is a multimodal Gemini-powered creative agent that transforms a user
 - Human-in-the-Loop orchestration: Users review and refine generated artifacts before finalizing output.
 - Regenerate workflow: Supports targeted image/video regeneration from updated prompts.
 - Video assembly pipeline: Merges generated clips into a final video using FFmpeg.
+- Defense-in-depth cost protection: Frontend UI password lock is verified by the backend (`APP_PASSWORD`), and heavy generation APIs are protected with IP-based rate limiting (`3 requests/minute`) via `slowapi`.
 - Stateless cloud-native media handling: Uses Google Cloud Storage for persistent assets and `/tmp` only for short-lived processing required by FFmpeg.
 - Cloud Run-ready architecture: Backend and frontend are containerized and deployable independently.
 
@@ -38,35 +39,32 @@ Install the following before running locally:
 
 ## Environment Variables
 
-Create a root `.env` file in this repository. Do not commit secrets.
+Backend configuration (FastAPI)
 
-```dotenv
-# Required by backend LLM calls
-GEMINI_API_KEY=your_gemini_api_key
+- Copy the template from `.env.example` to `.env` in the repository root.
+- This file configures Gemini, GCP project/region, Cloud Storage bucket, and backend security settings.
+- Set `APP_PASSWORD` in the root `.env`; the backend uses it to validate access via `POST /api/verify-access`.
 
-# Required for Vertex/GCP context (local and cloud)
-GOOGLE_CLOUD_PROJECT=your_gcp_project_id
-GOOGLE_CLOUD_LOCATION=us-central1
+Frontend configuration (Next.js)
 
-# Required for media persistence
-GCS_BUCKET_NAME=your_gcs_bucket_name
+- Copy `frontend/.env.example` to `frontend/.env.local`.
+- Set `NEXT_PUBLIC_API_URL` to your running backend URL (for example, `http://localhost:8000`).
+- Keep secrets in backend `.env` only; frontend environment variables are public by design.
 
-# CORS allowlist for frontend application URL
-FRONTEND_URL=http://localhost:3000
+## API Endpoints
 
-# Optional for local explicit service account authentication
-# GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+Core FastAPI endpoints currently exposed by the service:
 
-# Optional deployment metadata used in CI/CD contexts
-GCP_PROJECT_ID=your_gcp_project_id
-BACKEND_URL=http://localhost:8000
-```
+- `GET /health`: Lightweight liveness endpoint used for smoke checks and service health verification.
+- `POST /api/verify-access`: Verifies the UI password against backend `APP_PASSWORD`; returns `{ "authenticated": true }` on success and `401 Unauthorized` on invalid credentials.
+- `POST /stream_workflow`: Starts the main multimodal generation workflow and streams NDJSON chunks for text/tool progress and outputs.
+- `POST /regenerate_media`: Regenerates a specific image or video asset from a prompt and optional aspect ratio.
+- `POST /merge_videos`: Concatenates multiple generated video scene URLs into a single final video.
+- `POST /enhance_text`: Enhances or drafts a specific text field using the LLM for structured form-editing workflows.
 
-Create `frontend/.env.local` for local frontend runtime:
+Rate limit note:
 
-```dotenv
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+- Heavy generation endpoints (`/stream_workflow`, `/regenerate_media`, `/merge_videos`) are protected by an IP-based rate limit of `3 requests/minute` using `slowapi`.
 
 ## Reproducible Testing Instructions
 
